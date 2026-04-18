@@ -1,28 +1,32 @@
--- 以前のUIを完全に削除してリセット
+-- 以前のUIを掃除
 for _, old in pairs(game.CoreGui:GetChildren()) do
-    if old.Name == "ScannerFinalV20" then old:Destroy() end
+    if old.Name == "ScannerFinalV21" then old:Destroy() end
 end
 
 local screenGui = Instance.new("ScreenGui", game.CoreGui)
-screenGui.Name = "ScannerFinalV20"
+screenGui.Name = "ScannerFinalV21"
+screenGui.ResetOnSpawn = false
 
--- --- 1. 起動用アイコン（パネルを閉じている時に表示） ---
+-- --- 1. 起動用アイコン ---
 local openIcon = Instance.new("ImageButton", screenGui)
-openIcon.Size = UDim2.new(0, 40, 0, 40)
-openIcon.Position = UDim2.new(1, -45, 0.5, -100)
-openIcon.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-openIcon.Image = "rbxassetid://6031093116" -- 忍者アイコン
-openIcon.Visible = false -- 最初はパネルが出ているので隠す
+openIcon.Size = UDim2.new(0, 45, 0, 45)
+openIcon.Position = UDim2.new(1, -50, 0.5, -22)
+openIcon.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+openIcon.Image = "rbxassetid://6031093116"
+openIcon.Visible = false -- 最初は隠す
+openIcon.ZIndex = 20
 Instance.new("UICorner", openIcon).CornerRadius = UDim.new(1, 0)
 
 -- --- 2. メインパネル ---
 local panel = Instance.new("Frame", screenGui)
 panel.Size = UDim2.new(0, 200, 0, 380) 
-panel.Position = UDim2.new(1, -210, 0.5, -190)
+panel.Position = UDim2.new(1, -210, 0.5, -190) -- 右側に配置
 panel.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+panel.Visible = true -- 【重要】実行時に必ず表示
+panel.ZIndex = 10
 Instance.new("UICorner", panel)
 
--- 閉じる・開くの連動
+-- 表示切り替えロジック
 local function toggleUI(showPanel)
     panel.Visible = showPanel
     openIcon.Visible = not showPanel
@@ -60,7 +64,7 @@ closeBtn.TextSize = 18
 closeBtn.BackgroundTransparency = 1
 closeBtn.MouseButton1Click:Connect(function() toggleUI(false) end)
 
--- スクロールエリア
+-- スクロール
 local function createScroll(parent)
     local s = Instance.new("ScrollingFrame", parent)
     s.Size = UDim2.new(1, -10, 1, -85)
@@ -84,7 +88,6 @@ servPage.BackgroundTransparency = 1
 servPage.Visible = false
 local servScroll = createScroll(servPage)
 
--- 更新ボタン
 local function createRefreshBtn(parent, text)
     local btn = Instance.new("TextButton", parent)
     btn.Size = UDim2.new(0.9, 0, 0, 30)
@@ -101,7 +104,6 @@ end
 local refreshScan = createRefreshBtn(scanPage, "SCAN RELOAD")
 local refreshServ = createRefreshBtn(servPage, "SERVER RELOAD")
 
--- 共通リスト枠
 local function addEntry(parent, text)
     local f = Instance.new("Frame", parent)
     f.Size = UDim2.new(1, -5, 0, 35)
@@ -118,13 +120,11 @@ local function addEntry(parent, text)
     return f
 end
 
--- --- ロジック ---
-local localPlayer = game:GetService("Players").LocalPlayer
-
+-- ロジック
 local function doScan()
     for _, v in pairs(scanScroll:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end
     for _, p in ipairs(game.Players:GetPlayers()) do
-        if p == localPlayer then continue end
+        if p == game.Players.LocalPlayer then continue end
         local stats = p:FindFirstChild("leaderstats")
         local val = stats and (stats:FindFirstChild("BrainrotPerSec") or stats:FindFirstChild("Gain") or stats:FindFirstChild("Cash"))
         local score = val and tostring(val.Value) or "---"
