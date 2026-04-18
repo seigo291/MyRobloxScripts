@@ -1,176 +1,120 @@
 -- 重複削除
 for _, old in pairs(game.CoreGui:GetChildren()) do
-    if old.Name == "ScannerSystemV10" or old:FindFirstChild("SCAN") then old:Destroy() end
+    if old.Name == "ServerExplorerV12" then old:Destroy() end
 end
 
 local screenGui = Instance.new("ScreenGui", game.CoreGui)
-screenGui.Name = "ScannerSystemV10"
+screenGui.Name = "ServerExplorerV12"
 
--- --- 設定保持 ---
-_G.AutoScanEnabled = _G.AutoScanEnabled or false
-
--- アイコン（開閉スイッチ：右側に配置）
-local icon = Instance.new("ImageButton", screenGui)
-icon.Size = UDim2.new(0, 50, 0, 50)
-icon.Position = UDim2.new(1, -60, 0.5, -25) -- 画面右端
-icon.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-icon.Image = "rbxassetid://6031093116"
-icon.ImageColor3 = Color3.fromRGB(255, 255, 0)
-Instance.new("UICorner", icon).CornerRadius = UDim.new(1, 0)
-
--- メインパネル（右側に配置）
+-- メインパネル（右寄せ）
 local panel = Instance.new("Frame", screenGui)
-panel.Size = UDim2.new(0, 300, 0, 380)
-panel.Position = UDim2.new(1, -370, 0.5, -190) -- アイコンの左側に展開
+panel.Size = UDim2.new(0, 320, 0, 420)
+panel.Position = UDim2.new(1, -330, 0.5, -210)
 panel.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 panel.ClipsDescendants = true
-panel.Visible = false
 Instance.new("UICorner", panel)
 
--- 上部バー
-local bar = Instance.new("Frame", panel)
-bar.Size = UDim2.new(1, 0, 0, 100)
-bar.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+-- ヘッダー
+local header = Instance.new("Frame", panel)
+header.Size = UDim2.new(1, 0, 0, 50)
+header.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+local title = Instance.new("TextLabel", header)
+title.Size = UDim2.new(1, 0, 1, 0)
+title.Text = "ACTIVE SERVER LIST"
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.TextSize = 16
+title.Font = Enum.Font.SourceSansBold
+title.BackgroundTransparency = 1
 
-local function createInput(placeholder, x, y)
-    local input = Instance.new("TextBox", bar)
-    input.Size = UDim2.new(0, 60, 0, 25)
-    input.Position = UDim2.new(x, 0, y, 0)
-    input.PlaceholderText = placeholder
-    input.Text = ""
-    input.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-    input.TextColor3 = Color3.new(1, 1, 1)
-    input.TextSize = 11
-    Instance.new("UICorner", input)
-    return input
-end
-
-local minIn = createInput("Min", 0.05, 0.1)
-local maxIn = createInput("Max", 0.55, 0.1)
-
-local function createUnitBtn(x, y)
-    local btn = Instance.new("TextButton", bar)
-    btn.Size = UDim2.new(0, 40, 0, 25)
-    btn.Position = UDim2.new(x, 0, y, 0)
-    btn.Text = "M/s"
-    btn.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
-    btn.TextColor3 = Color3.new(1, 1, 1)
-    btn.TextSize = 10
-    Instance.new("UICorner", btn)
-    btn.MouseButton1Click:Connect(function() btn.Text = (btn.Text == "M/s") and "B/s" or "M/s" end)
-    return btn
-end
-
-local minUnit = createUnitBtn(0.27, 0.1)
-local maxUnit = createUnitBtn(0.77, 0.1)
-
--- AUTO ON/OFF
-local autoBtn = Instance.new("TextButton", bar)
-autoBtn.Size = UDim2.new(0.44, 0, 0, 30)
-autoBtn.Position = UDim2.new(0.05, 0, 0.55, 0)
-autoBtn.Text = "自動: OFF"
-autoBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-autoBtn.TextColor3 = Color3.new(1, 1, 1)
-Instance.new("UICorner", autoBtn)
-
--- SCAN
-local scanBtn = Instance.new("TextButton", bar)
-scanBtn.Size = UDim2.new(0.44, 0, 0, 30)
-scanBtn.Position = UDim2.new(0.51, 0, 0.55, 0)
-scanBtn.Text = "スキャン"
-scanBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 80)
-scanBtn.TextColor3 = Color3.new(1, 1, 1)
-Instance.new("UICorner", scanBtn)
-
--- リスト表示エリア
+-- スクロールリスト
 local scroll = Instance.new("ScrollingFrame", panel)
-scroll.Size = UDim2.new(1, -10, 1, -110)
-scroll.Position = UDim2.new(0, 5, 0, 105)
+scroll.Size = UDim2.new(1, -10, 1, -120)
+scroll.Position = UDim2.new(0, 5, 0, 55)
 scroll.BackgroundTransparency = 1
-scroll.BorderSizePixel = 0
-scroll.ScrollBarThickness = 4
+scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
 scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-scroll.ScrollingDirection = Enum.ScrollingDirection.Y
-Instance.new("UIListLayout", scroll).Padding = UDim.new(0, 5)
+scroll.ScrollBarThickness = 5
+local layout = Instance.new("UIListLayout", scroll)
+layout.Padding = UDim.new(0, 6)
 
--- サービス & ロジック
-local TeleportService = game:GetService("TeleportService")
+-- 更新ボタン
+local refreshBtn = Instance.new("TextButton", panel)
+refreshBtn.Size = UDim2.new(0.9, 0, 0, 40)
+refreshBtn.Position = UDim2.new(0.05, 0, 0.88, 0)
+refreshBtn.Text = "サーバー情報を更新"
+refreshBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
+refreshBtn.TextColor3 = Color3.new(1, 1, 1)
+refreshBtn.Font = Enum.Font.SourceSansBold
+Instance.new("UICorner", refreshBtn)
+
+-- サービス
 local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
 
-local function parseValue(val)
-    if type(val) == "number" then return val end
-    if type(val) == "string" then
-        local s = val:gsub("[^%d%.]", "")
-        local n = tonumber(s) or 0
-        if val:match("B") then return n * 10^9 end
-        if val:match("M") then return n * 10^6 end
-        return n
-    end
-    return 0
-end
-
-local function hopServer()
-    local success, result = pcall(function()
-        return HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Asc&limit=100"))
-    end)
-    if success then
-        for _, s in pairs(result.data) do
-            if s.playing < s.maxPlayers and s.id ~= game.JobId then
-                TeleportService:TeleportToPlaceInstance(game.PlaceId, s.id)
-                return
-            end
-        end
-    end
-end
-
-local function runScan()
-    for _, v in pairs(scroll:GetChildren()) do if v:IsA("Frame") or v:IsA("TextLabel") then v:Destroy() end end
-    local mUnit = (minUnit.Text == "B/s") and 10^9 or 10^6
-    local mxUnit = (maxUnit.Text == "B/s") and 10^9 or 10^6
-    local minVal = (tonumber(minIn.Text) or 0) * mUnit
-    local maxVal = (tonumber(maxIn.Text) or 9e18) * mxUnit
+local function updateList()
+    -- リストをクリア
+    for _, v in pairs(scroll:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end
     
-    local found = 0
-    for _, p in ipairs(game.Players:GetPlayers()) do
-        local stat = p:FindFirstChild("leaderstats") and (p.leaderstats:FindFirstChild("BrainrotPerSec") or p.leaderstats:FindFirstChild("Gain") or p.leaderstats:FindFirstChild("Cash"))
-        if stat then
-            local val = parseValue(stat.Value)
-            if val >= minVal and val <= maxVal then
-                found = found + 1
-                local f = Instance.new("Frame", scroll)
-                f.Size = UDim2.new(1, -5, 0, 40)
-                f.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-                Instance.new("UICorner", f)
-                local t = Instance.new("TextLabel", f)
-                t.Size = UDim2.new(1, -10, 1, 0)
-                t.Position = UDim2.new(0, 10, 0, 0)
-                t.Text = p.Name .. " [" .. ((val >= 10^9) and string.format("%.1fB/s", val/10^9) or string.format("%.1fM/s", val/10^6)) .. "]"
-                t.TextColor3 = Color3.new(1, 1, 1)
-                t.TextSize = 11
-                t.TextXAlignment = Enum.TextXAlignment.Left
-                t.BackgroundTransparency = 1
+    refreshBtn.Text = "スキャン中..."
+    refreshBtn.Active = false
+
+    -- 公開サーバーリストを取得（最新順・50件）
+    local url = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Desc&limit=50"
+    local success, result = pcall(function()
+        return HttpService:JSONDecode(game:HttpGet(url))
+    end)
+
+    if success and result.data then
+        for _, server in pairs(result.data) do
+            -- 自分と同じサーバーはスキップ
+            if server.id == game.JobId then continue end
+
+            local freeSlots = server.maxPlayers - server.playing
+            
+            -- サーバー枠作成
+            local f = Instance.new("Frame", scroll)
+            f.Size = UDim2.new(1, -10, 0, 65)
+            f.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+            Instance.new("UICorner", f)
+
+            -- ステータスラベル
+            local info = Instance.new("TextLabel", f)
+            info.Size = UDim2.new(0.65, 0, 1, 0)
+            info.Position = UDim2.new(0, 10, 0, 0)
+            info.BackgroundTransparency = 1
+            info.TextColor3 = Color3.new(1, 1, 1)
+            info.TextXAlignment = Enum.TextXAlignment.Left
+            info.TextSize = 13
+            
+            -- 人数によって色を変える
+            local statusColor = (freeSlots > 0) and "lime" or "red"
+            info.RichText = true
+            info.Text = "<b>人数:</b> " .. server.playing .. "/" .. server.maxPlayers .. 
+                        "\n<b>空き:</b> <font color='" .. statusColor .. "'>" .. freeSlots .. "人</font>" ..
+                        "\n<b>PING:</b> " .. (server.ping or "---") .. "ms"
+
+            -- JOINボタン
+            local join = Instance.new("TextButton", f)
+            join.Size = UDim2.new(0.28, 0, 0.6, 0)
+            join.Position = UDim2.new(0.68, 0, 0.2, 0)
+            join.Text = "JOIN"
+            join.BackgroundColor3 = (freeSlots > 0) and Color3.fromRGB(0, 180, 80) or Color3.fromRGB(100, 100, 100)
+            join.TextColor3 = Color3.new(1, 1, 1)
+            join.Font = Enum.Font.SourceSansBold
+            Instance.new("UICorner", join)
+
+            if freeSlots > 0 then
+                join.MouseButton1Click:Connect(function()
+                    TeleportService:TeleportToPlaceInstance(game.PlaceId, server.id)
+                end)
+            else
+                join.AutoButtonColor = false -- 満員なら反応させない
+                join.Text = "FULL"
             end
         end
     end
-    if found == 0 and _G.AutoScanEnabled then
-        hopServer()
-    end
+    refreshBtn.Text = "サーバー情報を更新"
+    refreshBtn.Active = true
 end
 
--- ボタンイベント
-autoBtn.MouseButton1Click:Connect(function()
-    _G.AutoScanEnabled = not _G.AutoScanEnabled
-    autoBtn.Text = _G.AutoScanEnabled and "自動: ON" or "自動: OFF"
-    autoBtn.BackgroundColor3 = _G.AutoScanEnabled and Color3.fromRGB(200, 0, 0) or Color3.fromRGB(80, 80, 80)
-    if _G.AutoScanEnabled then runScan() end
-end)
-
-scanBtn.MouseButton1Click:Connect(runScan)
-icon.MouseButton1Click:Connect(function() panel.Visible = not panel.Visible end)
-
-if _G.AutoScanEnabled then
-    autoBtn.Text = "自動: ON"
-    autoBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
-    task.wait(4)
-    runScan()
-end
+refreshBtn.MouseButton1Click:Connect(updateList)
