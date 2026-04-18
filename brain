@@ -5,13 +5,19 @@ local Players = game:GetService("Players")
 -- ==========================================
 -- 初期設定
 -- ==========================================
-local unitMultiplier = 10^6      -- 初期単位 M
+local unitMultiplier = 10^6
 local ICON_IMAGE = "rbxassetid://6031093116"
+
+-- 既存のGUIを削除（重複防止）
+local oldGui = game.CoreGui:FindFirstChild("ScannerSystem")
+if oldGui then oldGui:Destroy() end
 
 -- ==========================================
 -- GUI作成
 -- ==========================================
 local screenGui = Instance.new("ScreenGui", game.CoreGui)
+screenGui.Name = "ScannerSystem"
+
 local icon = Instance.new("ImageButton", screenGui)
 icon.Size = UDim2.new(0, 60, 0, 60)
 icon.Position = UDim2.new(1, -70, 0.5, 0)
@@ -27,29 +33,19 @@ panel.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 panel.Visible = false
 Instance.new("UICorner", panel)
 
--- --- 設定バー ---
 local configBar = Instance.new("Frame", panel)
 configBar.Size = UDim2.new(1, 0, 0, 60)
 configBar.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
 
--- 最小値入力（空なら0になるよう処理）
 local minInput = Instance.new("TextBox", configBar)
 minInput.Size = UDim2.new(0.25, 0, 0.6, 0)
 minInput.Position = UDim2.new(0.03, 0, 0.2, 0)
-minInput.Text = "" -- 初期状態は空
+minInput.Text = ""
 minInput.PlaceholderText = "0 (Min)"
 minInput.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 minInput.TextColor3 = Color3.new(1, 1, 1)
 Instance.new("UICorner", minInput)
 
-local wave = Instance.new("TextLabel", configBar)
-wave.Text = "~"
-wave.Size = UDim2.new(0.05, 0, 0.6, 0)
-wave.Position = UDim2.new(0.29, 0, 0.2, 0)
-wave.TextColor3 = Color3.new(1, 1, 1)
-wave.BackgroundTransparency = 1
-
--- 最大値入力
 local maxInput = Instance.new("TextBox", configBar)
 maxInput.Size = UDim2.new(0.25, 0, 0.6, 0)
 maxInput.Position = UDim2.new(0.35, 0, 0.2, 0)
@@ -59,7 +55,6 @@ maxInput.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 maxInput.TextColor3 = Color3.new(1, 1, 1)
 Instance.new("UICorner", maxInput)
 
--- 単位切り替え
 local unitBtn = Instance.new("TextButton", configBar)
 unitBtn.Size = UDim2.new(0.15, 0, 0.6, 0)
 unitBtn.Position = UDim2.new(0.63, 0, 0.2, 0)
@@ -68,7 +63,6 @@ unitBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
 unitBtn.TextColor3 = Color3.new(1, 1, 1)
 Instance.new("UICorner", unitBtn)
 
--- 実行ボタン
 local scanBtn = Instance.new("TextButton", configBar)
 scanBtn.Size = UDim2.new(0.15, 0, 0.6, 0)
 scanBtn.Position = UDim2.new(0.81, 0, 0.2, 0)
@@ -77,20 +71,16 @@ scanBtn.BackgroundColor3 = Color3.fromRGB(0, 180, 100)
 scanBtn.TextColor3 = Color3.new(1, 1, 1)
 Instance.new("UICorner", scanBtn)
 
--- --- リストエリア ---
 local scroll = Instance.new("ScrollingFrame", panel)
 scroll.Size = UDim2.new(0.9, 0, 0.8, 0)
 scroll.Position = UDim2.new(0.05, 0, 0.18, 0)
 scroll.BackgroundTransparency = 1
 scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-
-local layout = Instance.new("UIListLayout", scroll)
-layout.Padding = UDim.new(0, 5)
+Instance.new("UIListLayout", scroll).Padding = UDim.new(0, 5)
 
 -- ==========================================
 -- ロジック
 -- ==========================================
-
 unitBtn.MouseButton1Click:Connect(function()
     if unitBtn.Text == "M/s" then
         unitBtn.Text = "B/s"
@@ -130,16 +120,12 @@ end
 
 local function refresh()
     for _, v in pairs(scroll:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end
-    
-    -- ★ 修正ポイント：入力がない場合は0、最大値がない場合は無限として扱う
     local minV = tonumber(minInput.Text) or 0
     local maxV = tonumber(maxInput.Text) or 999999999
     local found = 0
-
     for _, p in ipairs(Players:GetPlayers()) do
         local stats = p:FindFirstChild("leaderstats") or p:FindFirstChild("Data")
         local speed = stats and (stats:FindFirstChild("BrainrotPerSec") or stats:FindFirstChild("Gain") or stats:FindFirstChild("CashPerSec"))
-        
         if speed then
             local val = speed.Value / unitMultiplier
             if val >= minV and val <= maxV then
@@ -147,14 +133,6 @@ local function refresh()
                 found = found + 1
             end
         end
-    end
-
-    if found == 0 then
-        local msg = Instance.new("TextLabel", scroll)
-        msg.Size = UDim2.new(1, 0, 0, 40)
-        msg.Text = "No one in range"
-        msg.TextColor3 = Color3.new(1, 0.4, 0.4)
-        msg.BackgroundTransparency = 1
     end
 end
 
