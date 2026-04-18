@@ -1,46 +1,46 @@
 -- 重複削除
 for _, old in pairs(game.CoreGui:GetChildren()) do
-    if old.Name == "ScannerSystemV9" or old:FindFirstChild("SCAN") then old:Destroy() end
+    if old.Name == "ScannerSystemV10" or old:FindFirstChild("SCAN") then old:Destroy() end
 end
 
 local screenGui = Instance.new("ScreenGui", game.CoreGui)
-screenGui.Name = "ScannerSystemV9"
+screenGui.Name = "ScannerSystemV10"
 
 -- --- 設定保持 ---
 _G.AutoScanEnabled = _G.AutoScanEnabled or false
 
--- アイコン（開閉スイッチ）
+-- アイコン（開閉スイッチ：右側に配置）
 local icon = Instance.new("ImageButton", screenGui)
 icon.Size = UDim2.new(0, 50, 0, 50)
-icon.Position = UDim2.new(0, 10, 0.5, -25) -- 画面左端の中央
+icon.Position = UDim2.new(1, -60, 0.5, -25) -- 画面右端
 icon.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
 icon.Image = "rbxassetid://6031093116"
 icon.ImageColor3 = Color3.fromRGB(255, 255, 0)
 Instance.new("UICorner", icon).CornerRadius = UDim.new(1, 0)
 
--- メインパネル（左側に配置）
+-- メインパネル（右側に配置）
 local panel = Instance.new("Frame", screenGui)
-panel.Size = UDim2.new(0, 320, 0, 380)
-panel.Position = UDim2.new(0, 70, 0.5, -190) -- アイコンのすぐ右
+panel.Size = UDim2.new(0, 300, 0, 380)
+panel.Position = UDim2.new(1, -370, 0.5, -190) -- アイコンの左側に展開
 panel.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 panel.ClipsDescendants = true
 panel.Visible = false
 Instance.new("UICorner", panel)
 
--- 上部バー（ドラッグ兼ヘッダー）
+-- 上部バー
 local bar = Instance.new("Frame", panel)
 bar.Size = UDim2.new(1, 0, 0, 100)
-bar.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+bar.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
 
 local function createInput(placeholder, x, y)
     local input = Instance.new("TextBox", bar)
-    input.Size = UDim2.new(0, 65, 0, 25)
+    input.Size = UDim2.new(0, 60, 0, 25)
     input.Position = UDim2.new(x, 0, y, 0)
     input.PlaceholderText = placeholder
     input.Text = ""
     input.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
     input.TextColor3 = Color3.new(1, 1, 1)
-    input.TextSize = 12
+    input.TextSize = 11
     Instance.new("UICorner", input)
     return input
 end
@@ -146,7 +146,7 @@ local function runScan()
                 t.Position = UDim2.new(0, 10, 0, 0)
                 t.Text = p.Name .. " [" .. ((val >= 10^9) and string.format("%.1fB/s", val/10^9) or string.format("%.1fM/s", val/10^6)) .. "]"
                 t.TextColor3 = Color3.new(1, 1, 1)
-                t.TextSize = 12
+                t.TextSize = 11
                 t.TextXAlignment = Enum.TextXAlignment.Left
                 t.BackgroundTransparency = 1
             end
