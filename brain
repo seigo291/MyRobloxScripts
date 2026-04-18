@@ -1,95 +1,99 @@
 -- 重複削除
 for _, old in pairs(game.CoreGui:GetChildren()) do
-    if old.Name == "ScannerSystemV8" or old:FindFirstChild("SCAN") then old:Destroy() end
+    if old.Name == "ScannerSystemV9" or old:FindFirstChild("SCAN") then old:Destroy() end
 end
 
 local screenGui = Instance.new("ScreenGui", game.CoreGui)
-screenGui.Name = "ScannerSystemV8"
+screenGui.Name = "ScannerSystemV9"
 
--- --- 設定保存用変数 ---
-local AUTO_SCAN_KEY = "AutoScanEnabled_V8"
-local MIN_VAL_KEY = "AutoScanMin_V8"
-local MAX_VAL_KEY = "AutoScanMax_V8"
-local UNIT_KEY = "AutoScanUnit_V8"
+-- --- 設定保持 ---
+_G.AutoScanEnabled = _G.AutoScanEnabled or false
 
--- アイコン
+-- アイコン（開閉スイッチ）
 local icon = Instance.new("ImageButton", screenGui)
-icon.Size = UDim2.new(0, 60, 0, 60)
-icon.Position = UDim2.new(1, -70, 0.5, 0)
+icon.Size = UDim2.new(0, 50, 0, 50)
+icon.Position = UDim2.new(0, 10, 0.5, -25) -- 画面左端の中央
 icon.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
 icon.Image = "rbxassetid://6031093116"
 icon.ImageColor3 = Color3.fromRGB(255, 255, 0)
 Instance.new("UICorner", icon).CornerRadius = UDim.new(1, 0)
 
--- メインパネル
+-- メインパネル（左側に配置）
 local panel = Instance.new("Frame", screenGui)
-panel.Size = UDim2.new(0, 450, 0, 350)
-panel.Position = UDim2.new(0.5, -225, 0.5, -175)
+panel.Size = UDim2.new(0, 320, 0, 380)
+panel.Position = UDim2.new(0, 70, 0.5, -190) -- アイコンのすぐ右
 panel.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 panel.ClipsDescendants = true
 panel.Visible = false
 Instance.new("UICorner", panel)
 
--- 設定バー
+-- 上部バー（ドラッグ兼ヘッダー）
 local bar = Instance.new("Frame", panel)
 bar.Size = UDim2.new(1, 0, 0, 100)
 bar.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 
-local function createInputGroup(placeholder, xPos)
+local function createInput(placeholder, x, y)
     local input = Instance.new("TextBox", bar)
-    input.Size = UDim2.new(0, 80, 0, 30)
-    input.Position = UDim2.new(xPos, 0, 0.1, 0)
+    input.Size = UDim2.new(0, 65, 0, 25)
+    input.Position = UDim2.new(x, 0, y, 0)
     input.PlaceholderText = placeholder
     input.Text = ""
     input.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
     input.TextColor3 = Color3.new(1, 1, 1)
+    input.TextSize = 12
     Instance.new("UICorner", input)
+    return input
+end
 
+local minIn = createInput("Min", 0.05, 0.1)
+local maxIn = createInput("Max", 0.55, 0.1)
+
+local function createUnitBtn(x, y)
     local btn = Instance.new("TextButton", bar)
-    btn.Size = UDim2.new(0, 50, 0, 30)
-    btn.Position = UDim2.new(xPos, 85, 0.1, 0)
+    btn.Size = UDim2.new(0, 40, 0, 25)
+    btn.Position = UDim2.new(x, 0, y, 0)
     btn.Text = "M/s"
     btn.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
     btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.TextSize = 10
     Instance.new("UICorner", btn)
-
-    btn.MouseButton1Click:Connect(function()
-        btn.Text = (btn.Text == "M/s") and "B/s" or "M/s"
-    end)
-    return input, btn
+    btn.MouseButton1Click:Connect(function() btn.Text = (btn.Text == "M/s") and "B/s" or "M/s" end)
+    return btn
 end
 
-local minIn, minUnit = createInputGroup("Min", 0.05)
-local maxIn, maxUnit = createInputGroup("Max", 0.42)
+local minUnit = createUnitBtn(0.27, 0.1)
+local maxUnit = createUnitBtn(0.77, 0.1)
 
--- AUTO ON/OFF ボタン
+-- AUTO ON/OFF
 local autoBtn = Instance.new("TextButton", bar)
-autoBtn.Size = UDim2.new(0.45, 0, 0, 35)
+autoBtn.Size = UDim2.new(0.44, 0, 0, 30)
 autoBtn.Position = UDim2.new(0.05, 0, 0.55, 0)
-autoBtn.Text = "自動巡回: OFF"
+autoBtn.Text = "自動: OFF"
 autoBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
 autoBtn.TextColor3 = Color3.new(1, 1, 1)
 Instance.new("UICorner", autoBtn)
 
--- SCANボタン
+-- SCAN
 local scanBtn = Instance.new("TextButton", bar)
-scanBtn.Size = UDim2.new(0.45, 0, 0, 35)
-scanBtn.Position = UDim2.new(0.52, 0, 0.55, 0)
-scanBtn.Text = "今すぐスキャン"
+scanBtn.Size = UDim2.new(0.44, 0, 0, 30)
+scanBtn.Position = UDim2.new(0.51, 0, 0.55, 0)
+scanBtn.Text = "スキャン"
 scanBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 80)
 scanBtn.TextColor3 = Color3.new(1, 1, 1)
 Instance.new("UICorner", scanBtn)
 
--- リストエリア
+-- リスト表示エリア
 local scroll = Instance.new("ScrollingFrame", panel)
-scroll.Size = UDim2.new(1, -20, 1, -110)
-scroll.Position = UDim2.new(0, 10, 0, 105)
+scroll.Size = UDim2.new(1, -10, 1, -110)
+scroll.Position = UDim2.new(0, 5, 0, 105)
 scroll.BackgroundTransparency = 1
+scroll.BorderSizePixel = 0
+scroll.ScrollBarThickness = 4
 scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 scroll.ScrollingDirection = Enum.ScrollingDirection.Y
-Instance.new("UIListLayout", scroll).Padding = UDim.new(0, 8)
+Instance.new("UIListLayout", scroll).Padding = UDim.new(0, 5)
 
--- サービス
+-- サービス & ロジック
 local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
 
@@ -119,10 +123,8 @@ local function hopServer()
     end
 end
 
--- スキャン本体
-local function runScan(isAuto)
+local function runScan()
     for _, v in pairs(scroll:GetChildren()) do if v:IsA("Frame") or v:IsA("TextLabel") then v:Destroy() end end
-    
     local mUnit = (minUnit.Text == "B/s") and 10^9 or 10^6
     local mxUnit = (maxUnit.Text == "B/s") and 10^9 or 10^6
     local minVal = (tonumber(minIn.Text) or 0) * mUnit
@@ -136,51 +138,39 @@ local function runScan(isAuto)
             if val >= minVal and val <= maxVal then
                 found = found + 1
                 local f = Instance.new("Frame", scroll)
-                f.Size = UDim2.new(1, -10, 0, 50)
-                f.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+                f.Size = UDim2.new(1, -5, 0, 40)
+                f.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
                 Instance.new("UICorner", f)
                 local t = Instance.new("TextLabel", f)
-                t.Size = UDim2.new(1, 0, 1, 0)
+                t.Size = UDim2.new(1, -10, 1, 0)
+                t.Position = UDim2.new(0, 10, 0, 0)
                 t.Text = p.Name .. " [" .. ((val >= 10^9) and string.format("%.1fB/s", val/10^9) or string.format("%.1fM/s", val/10^6)) .. "]"
                 t.TextColor3 = Color3.new(1, 1, 1)
+                t.TextSize = 12
+                t.TextXAlignment = Enum.TextXAlignment.Left
                 t.BackgroundTransparency = 1
             end
         end
     end
-    
     if found == 0 and _G.AutoScanEnabled then
-        local info = Instance.new("TextLabel", scroll)
-        info.Size = UDim2.new(1, 0, 0, 50)
-        info.Text = "不在：次のサーバーへ移動します..."
-        info.TextColor3 = Color3.new(1, 0.5, 0)
-        info.BackgroundTransparency = 1
-        wait(1)
         hopServer()
     end
 end
 
--- 自動巡回ON/OFF切り替え
+-- ボタンイベント
 autoBtn.MouseButton1Click:Connect(function()
     _G.AutoScanEnabled = not _G.AutoScanEnabled
-    if _G.AutoScanEnabled then
-        autoBtn.Text = "自動巡回: ON"
-        autoBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
-        runScan(true)
-    else
-        autoBtn.Text = "自動巡回: OFF"
-        autoBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-    end
+    autoBtn.Text = _G.AutoScanEnabled and "自動: ON" or "自動: OFF"
+    autoBtn.BackgroundColor3 = _G.AutoScanEnabled and Color3.fromRGB(200, 0, 0) or Color3.fromRGB(80, 80, 80)
+    if _G.AutoScanEnabled then runScan() end
 end)
 
-scanBtn.MouseButton1Click:Connect(function() runScan(false) end)
+scanBtn.MouseButton1Click:Connect(runScan)
 icon.MouseButton1Click:Connect(function() panel.Visible = not panel.Visible end)
 
--- 起動時の自動実行チェック
 if _G.AutoScanEnabled then
-    autoBtn.Text = "自動巡回: ON"
+    autoBtn.Text = "自動: ON"
     autoBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
-    spawn(function()
-        wait(3) -- データのロード待ち
-        runScan(true)
-    end)
+    task.wait(4)
+    runScan()
 end
