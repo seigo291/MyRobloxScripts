@@ -27,17 +27,17 @@ panel.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 panel.Visible = false
 Instance.new("UICorner", panel)
 
--- --- 設定バー (ここを大幅強化) ---
+-- --- 設定バー ---
 local configBar = Instance.new("Frame", panel)
 configBar.Size = UDim2.new(1, 0, 0, 60)
 configBar.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
 
--- 最小値入力
+-- 最小値入力（空なら0になるよう処理）
 local minInput = Instance.new("TextBox", configBar)
 minInput.Size = UDim2.new(0.25, 0, 0.6, 0)
 minInput.Position = UDim2.new(0.03, 0, 0.2, 0)
-minInput.Text = "10"
-minInput.PlaceholderText = "Min"
+minInput.Text = "" -- 初期状態は空
+minInput.PlaceholderText = "0 (Min)"
 minInput.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 minInput.TextColor3 = Color3.new(1, 1, 1)
 Instance.new("UICorner", minInput)
@@ -129,33 +129,4 @@ local function addEntry(name, speed, jobId)
 end
 
 local function refresh()
-    for _, v in pairs(scroll:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end
-    
-    local minV = tonumber(minInput.Text) or 0
-    local maxV = tonumber(maxInput.Text) or 999999
-    local found = 0
-
-    for _, p in ipairs(Players:GetPlayers()) do
-        local stats = p:FindFirstChild("leaderstats") or p:FindFirstChild("Data")
-        local speed = stats and (stats:FindFirstChild("BrainrotPerSec") or stats:FindFirstChild("Gain") or stats:FindFirstChild("CashPerSec"))
-        
-        if speed then
-            local val = speed.Value / unitMultiplier
-            if val >= minV and val <= maxV then
-                addEntry(p.Name, speed.Value, game.JobId)
-                found = found + 1
-            end
-        end
-    end
-
-    if found == 0 then
-        local msg = Instance.new("TextLabel", scroll)
-        msg.Size = UDim2.new(1, 0, 0, 40)
-        msg.Text = "No one in " .. minInput.Text .. "~" .. maxInput.Text .. unitBtn.Text
-        msg.TextColor3 = Color3.new(1, 0.4, 0.4)
-        msg.BackgroundTransparency = 1
-    end
-end
-
-scanBtn.MouseButton1Click:Connect(refresh)
-icon.MouseButton1Click:Connect(function() panel.Visible = not panel.Visible end)
+    for _, v in pairs(scroll:GetChildren()) do if v:IsA("Frame") then
