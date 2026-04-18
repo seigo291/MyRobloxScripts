@@ -1,35 +1,30 @@
--- 1. 古いUIを徹底的に掃除
+-- 古いUIを掃除
 local coreGui = game:GetService("CoreGui")
 for _, old in pairs(coreGui:GetChildren()) do
-    if old.Name:match("Scanner") or old.Name:match("Unified") or old:FindFirstChild("panel") then 
-        old:Destroy() 
-    end
+    if old.Name == "ScannerFinalV23" then old:Destroy() end
 end
 
 local screenGui = Instance.new("ScreenGui", coreGui)
-screenGui.Name = "ScannerFinalV22"
-screenGui.DisplayOrder = 999 -- 最前面に表示
+screenGui.Name = "ScannerFinalV23"
+screenGui.DisplayOrder = 999
 screenGui.ResetOnSpawn = false
 
--- --- メインパネル ---
+-- メインパネル（高さを少し調整してボタンを見えやすく）
 local panel = Instance.new("Frame", screenGui)
-panel.Size = UDim2.new(0, 200, 0, 380) 
-panel.Position = UDim2.new(1, -210, 0.5, -190)
+panel.Size = UDim2.new(0, 200, 0, 360) 
+panel.Position = UDim2.new(1, -210, 0.5, -180)
 panel.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-panel.BorderSizePixel = 0
-panel.Visible = true -- 実行時に必ず表示
 Instance.new("UICorner", panel)
 
--- --- 起動用アイコン（閉じている時用） ---
+-- 起動アイコン
 local openIcon = Instance.new("ImageButton", screenGui)
 openIcon.Size = UDim2.new(0, 45, 0, 45)
 openIcon.Position = UDim2.new(1, -50, 0.5, -22)
 openIcon.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
 openIcon.Image = "rbxassetid://6031093116"
-openIcon.Visible = false -- 最初はパネルが出ているので隠す
+openIcon.Visible = false
 Instance.new("UICorner", openIcon).CornerRadius = UDim.new(1, 0)
 
--- 表示切り替えロジック
 local function toggleUI(showPanel)
     panel.Visible = showPanel
     openIcon.Visible = not showPanel
@@ -66,7 +61,7 @@ closeBtn.TextSize = 18
 closeBtn.BackgroundTransparency = 1
 closeBtn.MouseButton1Click:Connect(function() toggleUI(false) end)
 
--- スクロールエリア
+-- スクロール
 local function createScroll(parent)
     local s = Instance.new("ScrollingFrame", parent)
     s.Size = UDim2.new(1, -10, 1, -85)
@@ -74,7 +69,6 @@ local function createScroll(parent)
     s.BackgroundTransparency = 1
     s.AutomaticCanvasSize = Enum.AutomaticSize.Y
     s.ScrollBarThickness = 3
-    s.CanvasSize = UDim2.new(0,0,0,0)
     local l = Instance.new("UIListLayout", s)
     l.Padding = UDim.new(0, 4)
     return s
@@ -91,10 +85,11 @@ servPage.BackgroundTransparency = 1
 servPage.Visible = false
 local servScroll = createScroll(servPage)
 
+-- 更新ボタン（位置を少し上にずらして確実に表示）
 local function createRefreshBtn(parent, text)
     local btn = Instance.new("TextButton", parent)
     btn.Size = UDim2.new(0.9, 0, 0, 30)
-    btn.Position = UDim2.new(0.05, 0, 1, -40)
+    btn.Position = UDim2.new(0.05, 0, 1, -45) -- 下から45pxの位置
     btn.Text = text
     btn.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
     btn.TextColor3 = Color3.new(1, 1, 1)
@@ -107,31 +102,47 @@ end
 local refreshScan = createRefreshBtn(scanPage, "SCAN RELOAD")
 local refreshServ = createRefreshBtn(servPage, "SERVER RELOAD")
 
-local function addEntry(parent, text)
+-- 共通リスト枠
+local function addEntry(parent, nameText, valueText, isYellow)
     local f = Instance.new("Frame", parent)
     f.Size = UDim2.new(1, -5, 0, 35)
     f.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
     Instance.new("UICorner", f)
-    local t = Instance.new("TextLabel", f)
-    t.Size = UDim2.new(1, -10, 1, 0)
-    t.Position = UDim2.new(0, 5, 0, 0)
-    t.BackgroundTransparency = 1
-    t.Text = text
-    t.TextColor3 = Color3.new(1, 1, 1)
-    t.TextSize = 10
-    t.TextXAlignment = Enum.TextXAlignment.Left
+    
+    local nameL = Instance.new("TextLabel", f)
+    nameL.Size = UDim2.new(0.6, 0, 1, 0)
+    nameL.Position = UDim2.new(0, 5, 0, 0)
+    nameL.BackgroundTransparency = 1
+    nameL.Text = nameText
+    nameL.TextColor3 = Color3.new(1, 1, 1)
+    nameL.TextSize = 10
+    nameL.TextXAlignment = Enum.TextXAlignment.Left
+    
+    local valL = Instance.new("TextLabel", f)
+    valL.Size = UDim2.new(0.4, -5, 1, 0)
+    valL.Position = UDim2.new(0.6, 0, 0, 0)
+    valL.BackgroundTransparency = 1
+    valL.Text = valueText
+    valL.TextColor3 = isYellow and Color3.new(1, 1, 0) or Color3.new(1, 1, 1) -- 黄色指定
+    valL.TextSize = 10
+    valL.TextXAlignment = Enum.TextXAlignment.Right
+    
     return f
 end
 
--- ロジック
+-- --- ロジック ---
 local function doScan()
     for _, v in pairs(scanScroll:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end
     for _, p in ipairs(game.Players:GetPlayers()) do
         if p == game.Players.LocalPlayer then continue end
+        
         local stats = p:FindFirstChild("leaderstats")
+        -- 黄色の数値（$●/s）に相当する項目を優先
         local val = stats and (stats:FindFirstChild("BrainrotPerSec") or stats:FindFirstChild("Gain") or stats:FindFirstChild("Cash"))
-        local score = val and tostring(val.Value) or "---"
-        addEntry(scanScroll, p.Name .. " : " .. score)
+        local score = val and ("$" .. tostring(val.Value) .. "/s") or "---"
+        
+        -- DisplayName（キャラ名）を使用
+        addEntry(scanScroll, p.DisplayName, score, true)
     end
 end
 
@@ -143,7 +154,7 @@ local function doServers()
     if success and res.data then
         for _, s in pairs(res.data) do
             if s.playing >= s.maxPlayers then continue end
-            local entry = addEntry(servScroll, s.playing .. "/" .. s.maxPlayers .. " (" .. (s.ping or "?") .. "ms)")
+            local entry = addEntry(servScroll, s.playing .. "/" .. s.maxPlayers .. " (" .. (s.ping or "?") .. "ms)", "", false)
             local j = Instance.new("TextButton", entry)
             j.Size = UDim2.new(0.3, 0, 0.7, 0)
             j.Position = UDim2.new(0.65, 0, 0.15, 0)
