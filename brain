@@ -1,4 +1,4 @@
--- 重複防止（完全に消してから作成）
+-- 古いUIを強制削除
 for _, old in pairs(game.CoreGui:GetChildren()) do
     if old.Name == "ScannerSystemFinal" or old:FindFirstChild("SCAN") then old:Destroy() end
 end
@@ -69,66 +69,68 @@ scroll.Size = UDim2.new(0.96, 0, 0.78, 0)
 scroll.Position = UDim2.new(0.02, 0, 0.2, 0)
 scroll.BackgroundTransparency = 1
 scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-scroll.ScrollBarThickness = 5
 local layout = Instance.new("UIListLayout", scroll)
 layout.Padding = UDim.new(0, 5)
+
+-- ログ表示（デバッグ用）
+local function showMsg(txt, color)
+    local l = Instance.new("TextLabel", scroll)
+    l.Size = UDim2.new(1, 0, 0, 30)
+    l.Text = txt
+    l.TextColor3 = color or Color3.new(1, 1, 1)
+    l.BackgroundTransparency = 1
+end
 
 -- ロジック
 local function getMult(txt) return (txt == "B/s") and 10^9 or 10^6 end
 
 scanBtn.MouseButton1Click:Connect(function()
-    -- 古いリストを消去
     for _, v in pairs(scroll:GetChildren()) do if v:IsA("Frame") or v:IsA("TextLabel") then v:Destroy() end end
     
-    local minNum = tonumber(minIn.Text) or 0
-    local maxNum = tonumber(maxIn.Text) or 9999999
-    local minVal = minNum * getMult(minUnit.Text)
-    local maxVal = maxNum * getMult(maxUnit.Text)
+    local minVal = (tonumber(minIn.Text) or 0) * getMult(minUnit.Text)
+    local maxVal = (tonumber(maxIn.Text) or 9e18) * getMult(maxUnit.Text)
+    
+    showMsg("Scanning...", Color3.new(1, 1, 0))
     
     local found = 0
     for _, p in ipairs(game.Players:GetPlayers()) do
-        local stats = p:FindFirstChild("leaderstats") or p:FindFirstChild("Data")
-        local s = stats and (stats:FindFirstChild("BrainrotPerSec") or stats:FindFirstChild("Gain") or stats:FindFirstChild("CashPerSec"))
-        
-        if s and s.Value >= minVal and s.Value <= maxVal then
-            found = found + 1
-            local f = Instance.new("Frame", scroll)
-            f.Size = UDim2.new(0.95, 0, 0, 50)
-            f.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-            Instance.new("UICorner", f)
+        -- すべての統計情報をチェック
+        local stats = p:FindFirstChild("leaderstats") or p:FindFirstChild("Data") or p:FindFirstChild("Stats")
+        if stats then
+            -- 「PerSec」「Gain」「Cash」などを含む数値を自動検索
+            local valObj = nil
+            for _, v in pairs(stats:GetChildren()) do
+                if v:IsA("NumberValue") or v:IsA("IntValue") or v:IsA("StringValue") then
+                    valObj = v
+                    break
+                end
+            end
+            
+            if valObj then
+                local numVal = tonumber(valObj.Value) or 0
+                if numVal >= minVal and numVal <= maxVal then
+                    found = found + 1
+                    local f = Instance.new("Frame", scroll)
+                    f.Size = UDim2.new(0.95, 0, 0, 45)
+                    f.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+                    Instance.new("UICorner", f)
 
-            local t = Instance.new("TextLabel", f)
-            t.Size = UDim2.new(0.7, 0, 1, 0)
-            t.Position = UDim2.new(0.05, 0, 0, 0)
-            t.BackgroundTransparency = 1
-            t.TextColor3 = Color3.new(1, 1, 1) -- 文字を白に
-            t.TextSize = 14
-            t.TextXAlignment = Enum.TextXAlignment.Left
-            -- 表示用：B/sかM/sか自動判定して表示
-            local displayVal = s.Value >= 10^9 and string.format("%.1f B/s", s.Value/10^9) or string.format("%.1f M/s", s.Value/10^6)
-            t.Text = p.Name .. "\n" .. displayVal
-            
-            local go = Instance.new("TextButton", f)
-            go.Size = UDim2.new(0.2, 0, 0.7, 0)
-            go.Position = UDim2.new(0.75, 0, 0.15, 0)
-            go.Text = "GO"
-            go.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
-            go.TextColor3 = Color3.new(1, 1, 1)
-            Instance.new("UICorner", go)
-            
-            go.MouseButton1Click:Connect(function()
-                -- テレポート（同じ場所ならサーバー移動は特殊な処理が必要ですが、基本はこれ）
-                print("Target: " .. p.Name)
-            end)
+                    local t = Instance.new("TextLabel", f)
+                    t.Size = UDim2.new(0.7, 0, 1, 0)
+                    t.Position = UDim2.new(0.05, 0, 0, 0)
+                    t.Text = p.Name .. " : " .. valObj.Value
+                    t.TextColor3 = Color3.new(1, 1, 1)
+                    t.BackgroundTransparency = 1
+                    t.TextXAlignment = Enum.TextXAlignment.Left
+                end
+            end
         end
     end
     
     if found == 0 then
-        local empty = Instance.new("TextLabel", scroll)
-        empty.Size = UDim2.new(1, 0, 0, 50)
-        empty.Text = "No players found in range"
-        empty.TextColor3 = Color3.new(1, 0, 0)
-        empty.BackgroundTransparency = 1
+        showMsg("Error: No stats found. Check Output.", Color3.new(1, 0, 0))
+    else
+        showMsg("Found " .. found .. " players", Color3.new(0, 1, 0))
     end
 end)
 
