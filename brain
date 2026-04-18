@@ -1,49 +1,164 @@
 --// SERVICES
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
 local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
-local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
 local placeId = game.PlaceId
 
---// SETTINGS（ここ調整）
+--// SETTINGS
 local MAX_PAGES = 5
 local SAFE_SLOTS = 2
 local RETRY_DELAY = 1.5
 local MAX_RETRIES = 15
 local RANDOM_TOP = 5
+local MAX_PLAYERS_ALLOWED = 6
+local MAX_PING = 120
 
--- スナイプ条件
-local MAX_PLAYERS_ALLOWED = 6 -- 過疎狙い
-local MAX_PING = 120 -- ping制限（nilなら無視）
+--// CLEAN OLD UI
+for _, v in pairs(CoreGui:GetChildren()) do
+    if v.Name:match("ScannerFinal") or v.Name == "ScannerToggleIcon" then
+        v:Destroy()
+    end
+end
 
---// FETCH SERVER
-local function fetchServers(cursor)
-    local url = "https://games.roblox.com/v1/games/"..placeId.."/servers/Public?sortOrder=Desc&limit=100"
-    if cursor then
-        url = url .. "&cursor=" .. cursor
+--// GUI ROOT
+local screenGui = Instance.new("ScreenGui", CoreGui)
+screenGui.Name = "ScannerFinalMobile"
+screenGui.IgnoreGuiInset = false
+screenGui.ResetOnSpawn = false
+
+--// SCALE (モバイル対応)
+local scale = Instance.new("UIScale", screenGui)
+local function updateScale()
+    local size = workspace.CurrentCamera.ViewportSize
+    scale.Scale = math.clamp(size.X / 375, 0.8, 1.5)
+end
+updateScale()
+workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateScale)
+
+--// OPEN ICON
+local openIcon = Instance.new("ImageButton", screenGui)
+openIcon.Size = UDim2.new(0, 55, 0, 55)
+openIcon.Position = UDim2.new(1, -65, 0.6, 0)
+openIcon.BackgroundColor3 = Color3.fromRGB(40,40,40)
+openIcon.Image = "rbxassetid://6031093116"
+Instance.new("UICorner", openIcon).CornerRadius = UDim.new(1,0)
+
+--// PANEL
+local panel = Instance.new("Frame", screenGui)
+panel.Size = UDim2.new(0.35, 0, 0.55, 0)
+panel.Position = UDim2.new(1, 300, 0.5, 0)
+panel.AnchorPoint = Vector2.new(1,0.5)
+panel.BackgroundColor3 = Color3.fromRGB(20,20,20)
+panel.Visible = false
+Instance.new("UICorner", panel)
+
+--// HEADER
+local header = Instance.new("Frame", panel)
+header.Size = UDim2.new(1,0,0,40)
+header.BackgroundColor3 = Color3.fromRGB(35,35,35)
+
+local closeBtn = Instance.new("TextButton", header)
+closeBtn.Size = UDim2.new(0.2,0,1,0)
+closeBtn.Position = UDim2.new(0.8,0,0,0)
+closeBtn.Text = "×"
+closeBtn.TextSize = 24
+closeBtn.TextColor3 = Color3.new(1,0.3,0.3)
+closeBtn.BackgroundTransparency = 1
+
+--// SERVERS PAGE
+local servPage = Instance.new("ScrollingFrame", panel)
+servPage.Size = UDim2.new(1,-10,1,-50)
+servPage.Position = UDim2.new(0,5,0,45)
+servPage.CanvasSize = UDim2.new(0,0,0,0)
+servPage.AutomaticCanvasSize = Enum.AutomaticSize.Y
+servPage.ScrollBarThickness = 6
+servPage.BackgroundTransparency = 1
+
+local layout = Instance.new("UIListLayout", servPage)
+layout.Padding = UDim.new(0,5)
+
+--// TOGGLE UI
+local function toggleUI(state)
+    panel.Visible = true
+
+    if state then
+        TweenService:Create(panel, TweenInfo.new(0.25), {
+            Position = UDim2.new(1,-10,0.5,0)
+        }):Play()
+    else
+        TweenService:Create(panel, TweenInfo.new(0.25), {
+            Position = UDim2.new(1,300,0.5,0)
+        }):Play()
+        task.wait(0.25)
+        panel.Visible = false
     end
 
-    local success, res = pcall(function()
+    openIcon.Visible = not state
+end
+
+openIcon.MouseButton1Click:Connect(function()
+    toggleUI(true)
+end)
+
+closeBtn.MouseButton1Click:Connect(function()
+    toggleUI(false)
+end)
+
+--// DRAG (モバイル)
+local dragging, dragStart, startPos
+
+openIcon.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = openIcon.Position
+    end
+end)
+
+openIcon.InputChanged:Connect(function(input)
+    if dragging then
+        local delta = input.Position - dragStart
+        openIcon.Position = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + delta.X,
+            startPos.Y.Scale,
+            startPos.Y.Offset + delta.Y
+        )
+    end
+end)
+
+openIcon.InputEnded:Connect(function()
+    dragging = false
+end)
+
+--// SERVER FETCH
+local function fetchServers(cursor)
+    local url = "https://games.roblox.com/v1/games/"..placeId.."/servers/Public?limit=100"
+    if cursor then url = url.."&cursor="..cursor end
+
+    local ok,res = pcall(function()
         return game:HttpGet(url)
     end)
 
-    if not success then return nil end
+    if not ok then return nil end
     return HttpService:JSONDecode(res)
 end
 
 --// GET SERVERS
 local function getServers()
     local servers = {}
-    local cursor = nil
+    local cursor
 
-    for _ = 1, MAX_PAGES do
+    for _=1,MAX_PAGES do
         local data = fetchServers(cursor)
-        if not data or not data.data then break end
+        if not data then break end
 
-        for _, s in ipairs(data.data) do
+        for _,s in ipairs(data.data) do
             local free = s.maxPlayers - s.playing
-
             if free >= SAFE_SLOTS then
                 table.insert(servers, s)
             end
@@ -56,11 +171,11 @@ local function getServers()
     return servers
 end
 
---// FILTER（スナイプ）
+--// FILTER
 local function filterServers(list)
     local result = {}
 
-    for _, s in ipairs(list) do
+    for _,s in ipairs(list) do
         local free = s.maxPlayers - s.playing
 
         if free >= SAFE_SLOTS
@@ -70,7 +185,7 @@ local function filterServers(list)
         end
     end
 
-    table.sort(result, function(a, b)
+    table.sort(result,function(a,b)
         return a.playing < b.playing
     end)
 
@@ -80,51 +195,31 @@ end
 --// PICK
 local function pickServer(list)
     if #list == 0 then return nil end
-    local range = math.min(RANDOM_TOP, #list)
-    return list[math.random(1, range)]
+    return list[math.random(1, math.min(RANDOM_TOP,#list))]
 end
 
 --// TELEPORT
 local function tryTeleport(server)
-    local success = pcall(function()
+    return pcall(function()
         TeleportService:TeleportToPlaceInstance(placeId, server.id, player)
     end)
-
-    return success
 end
 
 --// AUTO JOIN
+local running = false
+
 local function autoJoin()
-    for i = 1, MAX_RETRIES do
-        print("試行:", i)
+    for i=1,MAX_RETRIES do
+        local servers = filterServers(getServers())
 
-        local servers = getServers()
-        local filtered = filterServers(servers)
-
-        if #filtered == 0 then
-            warn("条件一致なし 再試行")
-            task.wait(RETRY_DELAY)
-            continue
-        end
-
-        local target = pickServer(filtered)
-
-        if target then
-            print("JOIN:", target.id, "人数:", target.playing)
-
-            if tryTeleport(target) then
-                return
-            end
+        if #servers > 0 then
+            local s = pickServer(servers)
+            if tryTeleport(s) then return end
         end
 
         task.wait(RETRY_DELAY)
     end
-
-    warn("全試行失敗")
 end
-
---// LOOP
-local running = false
 
 local function startAuto()
     if running then return end
@@ -142,14 +237,13 @@ local function stopAuto()
     running = false
 end
 
---// UI（SERVERSタブに追加）
+--// AUTO BUTTON
 local autoBtn = Instance.new("TextButton", servPage)
-autoBtn.Size = UDim2.new(1, -5, 0, 35)
+autoBtn.Size = UDim2.new(1,-10,0,45)
 autoBtn.Text = "AUTO SNIPE"
 autoBtn.BackgroundColor3 = Color3.fromRGB(80,160,80)
 autoBtn.TextColor3 = Color3.new(1,1,1)
-autoBtn.Font = Enum.Font.SourceSansBold
-autoBtn.TextSize = 14
+autoBtn.TextSize = 16
 Instance.new("UICorner", autoBtn)
 
 local toggle = false
@@ -168,48 +262,6 @@ autoBtn.MouseButton1Click:Connect(function()
     end
 end)
 
---// 手動リスト表示（既存のrefreshServers強化版）
-local function refreshServers()
-    for _, v in pairs(servPage:GetChildren()) do
-        if v:IsA("Frame") then v:Destroy() end
-    end
-
-    local servers = getServers()
-
-    for _, s in ipairs(servers) do
-        local f = Instance.new("Frame", servPage)
-        f.Size = UDim2.new(1, -5, 0, 40)
-        f.BackgroundColor3 = Color3.fromRGB(45,45,45)
-        Instance.new("UICorner", f)
-
-        local txt = Instance.new("TextLabel", f)
-        txt.Size = UDim2.new(0.7, 0, 1, 0)
-        txt.Position = UDim2.new(0, 10, 0, 0)
-        txt.BackgroundTransparency = 1
-        txt.TextXAlignment = Enum.TextXAlignment.Left
-        txt.Font = Enum.Font.SourceSans
-        txt.TextSize = 13
-        txt.TextColor3 = Color3.new(1,1,1)
-
-        txt.Text = "👥 "..s.playing.."/"..s.maxPlayers
-
-        local btn = Instance.new("TextButton", f)
-        btn.Size = UDim2.new(0.25, 0, 0.7, 0)
-        btn.Position = UDim2.new(0.72, 0, 0.15, 0)
-        btn.Text = "JOIN"
-        btn.BackgroundColor3 = Color3.fromRGB(70,130,255)
-        btn.TextColor3 = Color3.new(1,1,1)
-        Instance.new("UICorner", btn)
-
-        btn.MouseButton1Click:Connect(function()
-            tryTeleport(s)
-        end)
-    end
-end
-
--- タブ接続
-tabServBtn.MouseButton1Click:Connect(function()
-    scanPage.Visible = false
-    servPage.Visible = true
-    refreshServers()
-end)
+--// 初期状態
+openIcon.Visible = true
+panel.Visible = false
