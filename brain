@@ -1,64 +1,62 @@
--- 重複削除
+-- 古いUIの完全削除
 for _, old in pairs(game.CoreGui:GetChildren()) do
-    if old.Name == "ServerExplorerV12" then old:Destroy() end
+    if old.Name == "ServerExplorerV13" then old:Destroy() end
 end
 
 local screenGui = Instance.new("ScreenGui", game.CoreGui)
-screenGui.Name = "ServerExplorerV12"
+screenGui.Name = "ServerExplorerV13"
 
--- メインパネル（右寄せ）
+-- メインパネル（さらに横幅を細く、全体を小さく）
 local panel = Instance.new("Frame", screenGui)
-panel.Size = UDim2.new(0, 320, 0, 420)
-panel.Position = UDim2.new(1, -330, 0.5, -210)
+panel.Size = UDim2.new(0, 240, 0, 320) -- 横240、縦320に縮小
+panel.Position = UDim2.new(1, -250, 0.5, -160) -- 右端に寄せる
 panel.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 panel.ClipsDescendants = true
-Instance.new("UICorner", panel)
+Instance.new("UICorner", panel).CornerRadius = UDim.new(0, 6)
 
--- ヘッダー
+-- ヘッダー（高さを抑える）
 local header = Instance.new("Frame", panel)
-header.Size = UDim2.new(1, 0, 0, 50)
+header.Size = UDim2.new(1, 0, 0, 35)
 header.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
 local title = Instance.new("TextLabel", header)
 title.Size = UDim2.new(1, 0, 1, 0)
-title.Text = "ACTIVE SERVER LIST"
-title.TextColor3 = Color3.fromRGB(255, 255, 255)
-title.TextSize = 16
+title.Text = "ACTIVE SERVERS"
+title.TextColor3 = Color3.fromRGB(200, 200, 200)
+title.TextSize = 12 -- 文字を小さく
 title.Font = Enum.Font.SourceSansBold
 title.BackgroundTransparency = 1
 
 -- スクロールリスト
 local scroll = Instance.new("ScrollingFrame", panel)
-scroll.Size = UDim2.new(1, -10, 1, -120)
-scroll.Position = UDim2.new(0, 5, 0, 55)
+scroll.Size = UDim2.new(1, -10, 1, -85) -- リスト領域の調整
+scroll.Position = UDim2.new(0, 5, 0, 40)
 scroll.BackgroundTransparency = 1
 scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
 scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-scroll.ScrollBarThickness = 5
+scroll.ScrollBarThickness = 3 -- バーも細く
 local layout = Instance.new("UIListLayout", scroll)
-layout.Padding = UDim.new(0, 6)
+layout.Padding = UDim.new(0, 4)
 
--- 更新ボタン
+-- 更新ボタン（コンパクト化）
 local refreshBtn = Instance.new("TextButton", panel)
-refreshBtn.Size = UDim2.new(0.9, 0, 0, 40)
-refreshBtn.Position = UDim2.new(0.05, 0, 0.88, 0)
-refreshBtn.Text = "サーバー情報を更新"
-refreshBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
+refreshBtn.Size = UDim2.new(0.9, 0, 0, 30)
+refreshBtn.Position = UDim2.new(0.05, 0, 1, -35)
+refreshBtn.Text = "REFRESH LIST"
+refreshBtn.BackgroundColor3 = Color3.fromRGB(0, 100, 200)
 refreshBtn.TextColor3 = Color3.new(1, 1, 1)
+refreshBtn.TextSize = 12
 refreshBtn.Font = Enum.Font.SourceSansBold
-Instance.new("UICorner", refreshBtn)
+Instance.new("UICorner", refreshBtn).CornerRadius = UDim.new(0, 4)
 
 -- サービス
 local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
 
 local function updateList()
-    -- リストをクリア
     for _, v in pairs(scroll:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end
-    
-    refreshBtn.Text = "スキャン中..."
+    refreshBtn.Text = "SCANNING..."
     refreshBtn.Active = false
 
-    -- 公開サーバーリストを取得（最新順・50件）
     local url = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Desc&limit=50"
     local success, result = pcall(function()
         return HttpService:JSONDecode(game:HttpGet(url))
@@ -66,41 +64,33 @@ local function updateList()
 
     if success and result.data then
         for _, server in pairs(result.data) do
-            -- 自分と同じサーバーはスキップ
             if server.id == game.JobId then continue end
-
             local freeSlots = server.maxPlayers - server.playing
             
-            -- サーバー枠作成
+            -- 各枠を低くスリムに
             local f = Instance.new("Frame", scroll)
-            f.Size = UDim2.new(1, -10, 0, 65)
-            f.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+            f.Size = UDim2.new(1, -6, 0, 45) -- 高さを45に短縮
+            f.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
             Instance.new("UICorner", f)
 
-            -- ステータスラベル
             local info = Instance.new("TextLabel", f)
-            info.Size = UDim2.new(0.65, 0, 1, 0)
-            info.Position = UDim2.new(0, 10, 0, 0)
+            info.Size = UDim2.new(0.6, 0, 1, 0)
+            info.Position = UDim2.new(0, 8, 0, 0)
             info.BackgroundTransparency = 1
-            info.TextColor3 = Color3.new(1, 1, 1)
+            info.TextColor3 = Color3.new(0.9, 0.9, 0.9)
             info.TextXAlignment = Enum.TextXAlignment.Left
-            info.TextSize = 13
-            
-            -- 人数によって色を変える
-            local statusColor = (freeSlots > 0) and "lime" or "red"
+            info.TextSize = 11
             info.RichText = true
-            info.Text = "<b>人数:</b> " .. server.playing .. "/" .. server.maxPlayers .. 
-                        "\n<b>空き:</b> <font color='" .. statusColor .. "'>" .. freeSlots .. "人</font>" ..
-                        "\n<b>PING:</b> " .. (server.ping or "---") .. "ms"
+            info.Text = "Players: " .. server.playing .. "/" .. server.maxPlayers .. 
+                        "\nFree: <font color='#00ff00'>" .. freeSlots .. "</font> | " .. (server.ping or "??") .. "ms"
 
-            -- JOINボタン
             local join = Instance.new("TextButton", f)
-            join.Size = UDim2.new(0.28, 0, 0.6, 0)
-            join.Position = UDim2.new(0.68, 0, 0.2, 0)
+            join.Size = UDim2.new(0.3, 0, 0.6, 0)
+            join.Position = UDim2.new(0.65, 0, 0.2, 0)
             join.Text = "JOIN"
-            join.BackgroundColor3 = (freeSlots > 0) and Color3.fromRGB(0, 180, 80) or Color3.fromRGB(100, 100, 100)
+            join.BackgroundColor3 = (freeSlots > 0) and Color3.fromRGB(0, 150, 70) or Color3.fromRGB(70, 70, 70)
             join.TextColor3 = Color3.new(1, 1, 1)
-            join.Font = Enum.Font.SourceSansBold
+            join.TextSize = 11
             Instance.new("UICorner", join)
 
             if freeSlots > 0 then
@@ -108,12 +98,11 @@ local function updateList()
                     TeleportService:TeleportToPlaceInstance(game.PlaceId, server.id)
                 end)
             else
-                join.AutoButtonColor = false -- 満員なら反応させない
                 join.Text = "FULL"
             end
         end
     end
-    refreshBtn.Text = "サーバー情報を更新"
+    refreshBtn.Text = "REFRESH LIST"
     refreshBtn.Active = true
 end
 
