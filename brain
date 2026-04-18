@@ -1,4 +1,81 @@
--- 中略（上の方は同じ）
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+
+-- ==========================================
+-- 設定エリア
+-- ==========================================
+local MIN_SPEED = 10 * 10^6  -- 10M
+local MAX_SPEED = 100 * 10^6 -- 100M
+local ICON_IMAGE = "rbxassetid://6031093116"
+local isScanning = false
+
+-- ==========================================
+-- GUI作成
+-- ==========================================
+local screenGui = Instance.new("ScreenGui", game.CoreGui)
+screenGui.Name = "BrainrotScannerV2"
+
+local icon = Instance.new("ImageButton", screenGui)
+icon.Size = UDim2.new(0, 60, 0, 60)
+icon.Position = UDim2.new(1, -70, 0.5, 0)
+icon.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+icon.Image = ICON_IMAGE
+icon.ImageColor3 = Color3.fromRGB(255, 255, 0)
+Instance.new("UICorner", icon).CornerRadius = UDim.new(1, 0)
+
+local panel = Instance.new("Frame", screenGui)
+panel.Size = UDim2.new(0.3, 0, 0.6, 0)
+panel.Position = UDim2.new(1, -350, 0.2, 0)
+panel.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+panel.Visible = false
+Instance.new("UICorner", panel)
+
+local scroll = Instance.new("ScrollingFrame", panel)
+scroll.Size = UDim2.new(0.9, 0, 0.85, 0)
+scroll.Position = UDim2.new(0.05, 0, 0.1, 0)
+scroll.BackgroundTransparency = 1
+scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+
+local layout = Instance.new("UIListLayout", scroll)
+layout.Padding = UDim.new(0, 5)
+layout.SortOrder = Enum.SortOrder.LayoutOrder
+
+-- ==========================================
+-- 機能ロジック
+-- ==========================================
+
+local function addEntry(name, speed, jobId)
+    local item = Instance.new("Frame", scroll)
+    item.Size = UDim2.new(1, 0, 0, 50)
+    item.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    -- 数値が大きいほど上にくるように設定
+    item.LayoutOrder = 1000000000 - math.floor(speed / 1000)
+    Instance.new("UICorner", item)
+    
+    local info = Instance.new("TextLabel", item)
+    info.Size = UDim2.new(0.7, 0, 1, 0)
+    info.Position = UDim2.new(0.05, 0, 0, 0)
+    -- 名前と秒間報酬を表示
+    info.Text = string.format("Owner: %s\nRate: $%.1fM/s", name, speed/10^6)
+    info.TextColor3 = Color3.new(1, 1, 1)
+    info.TextXAlignment = Enum.TextXAlignment.Left
+    info.BackgroundTransparency = 1
+    
+    local btn = Instance.new("TextButton", item)
+    btn.Size = UDim2.new(0.25, 0, 0.6, 0)
+    btn.Position = UDim2.new(0.7, 0, 0.2, 0)
+    btn.Text = "GO"
+    btn.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    Instance.new("UICorner", btn)
+    
+    btn.MouseButton1Click:Connect(function()
+        TeleportService:TeleportToPlaceInstance(game.PlaceId, jobId, Players.LocalPlayer)
+    end)
+end
 
 local function refresh()
     if isScanning then return end
@@ -8,30 +85,35 @@ local function refresh()
 
     local foundCount = 0
     for _, p in ipairs(Players:GetPlayers()) do
-        local stats = p:FindFirstChild("leaderstats")
-        -- ★ ここを強化！ ゲームによって名前が違うので、一般的ないくつかの名前を探します
+        -- このゲームのデータ構造に合わせて、考えられる全ての場所を探します
+        local stats = p:FindFirstChild("leaderstats") or p:FindFirstChild("Data")
         local speed = stats and (
             stats:FindFirstChild("BrainrotPerSec") or 
             stats:FindFirstChild("Gain") or 
-            stats:FindFirstChild("Cash") or 
-            stats:FindFirstChild("Power")
+            stats:FindFirstChild("CashPerSec") or 
+            stats:FindFirstChild("PerSec")
         )
         
+        -- 数値が設定範囲内かチェック
         if speed and speed.Value >= MIN_SPEED and speed.Value <= MAX_SPEED then
             addEntry(p.Name, speed.Value, game.JobId)
             foundCount = foundCount + 1
         end
     end
 
-    -- もし誰も見つからなかったら「No Targets」と表示
     if foundCount == 0 then
         local empty = Instance.new("TextLabel", scroll)
         empty.Size = UDim2.new(1, 0, 0, 40)
-        empty.Text = "No Targets Found"
-        empty.TextColor3 = Color3.new(1, 0, 0)
+        empty.Text = "No Target in this Server"
+        empty.TextColor3 = Color3.new(1, 0.5, 0.5)
         empty.BackgroundTransparency = 1
     end
 
-    task.wait(2)
+    task.wait(1)
     isScanning = false
 end
+
+icon.MouseButton1Click:Connect(function()
+    panel.Visible = not panel.Visible
+    if panel.Visible then refresh() end
+end)
