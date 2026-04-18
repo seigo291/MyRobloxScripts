@@ -1,11 +1,11 @@
--- 古いUIを完全に削除してリセット
+-- 既存のUIを確実にクリア
 local coreGui = game:GetService("CoreGui")
 for _, old in pairs(coreGui:GetChildren()) do
     if old.Name:match("ScannerFinal") then old:Destroy() end
 end
 
 local screenGui = Instance.new("ScreenGui", coreGui)
-screenGui.Name = "ScannerFinalV28"
+screenGui.Name = "ScannerFinalV29"
 screenGui.DisplayOrder = 999
 screenGui.ResetOnSpawn = false
 
@@ -13,45 +13,33 @@ screenGui.ResetOnSpawn = false
 local panel = Instance.new("Frame", screenGui)
 panel.Size = UDim2.new(0, 230, 0, 360) 
 panel.Position = UDim2.new(1, -240, 0.5, -180)
-panel.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-panel.BorderSizePixel = 0
+panel.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 Instance.new("UICorner", panel)
 
--- ヘッダー
+-- タイトル
 local header = Instance.new("Frame", panel)
 header.Size = UDim2.new(1, 0, 0, 35)
-header.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+header.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 Instance.new("UICorner", header)
 
-local tabScan = Instance.new("TextLabel", header)
-tabScan.Size = UDim2.new(1, 0, 1, 0)
-tabScan.Text = "PLAYER SCAN"
-tabScan.TextColor3 = Color3.new(1, 1, 1)
-tabScan.Font = Enum.Font.SourceSansBold
-tabScan.BackgroundTransparency = 1
+local title = Instance.new("TextLabel", header)
+title.Size = UDim2.new(1, 0, 1, 0)
+title.Text = "PLAYER SCAN"
+title.TextColor3 = Color3.new(1, 1, 1)
+title.Font = Enum.Font.SourceSansBold
+title.BackgroundTransparency = 1
 
-local closeBtn = Instance.new("TextButton", header)
-closeBtn.Size = UDim2.new(0, 35, 1, 0)
-closeBtn.Position = UDim2.new(1, -35, 0, 0)
-closeBtn.Text = "×"
-closeBtn.TextColor3 = Color3.new(1, 0.3, 0.3)
-closeBtn.TextSize = 20
-closeBtn.BackgroundTransparency = 1
-closeBtn.MouseButton1Click:Connect(function() screenGui:Destroy() end)
-
--- リストエリア
+-- リスト表示エリア
 local scroll = Instance.new("ScrollingFrame", panel)
 scroll.Size = UDim2.new(1, -10, 1, -95)
 scroll.Position = UDim2.new(0, 5, 0, 40)
 scroll.BackgroundTransparency = 1
-scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
 scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 scroll.ScrollBarThickness = 3
+local listLayout = Instance.new("UIListLayout", scroll)
+listLayout.Padding = UDim.new(0, 5)
 
-local layout = Instance.new("UIListLayout", scroll)
-layout.Padding = UDim.new(0, 5)
-
--- 更新ボタン
+-- リロードボタン
 local refreshBtn = Instance.new("TextButton", panel)
 refreshBtn.Size = UDim2.new(0.9, 0, 0, 35)
 refreshBtn.Position = UDim2.new(0.05, 0, 1, -45)
@@ -61,47 +49,41 @@ refreshBtn.TextColor3 = Color3.new(1, 1, 1)
 refreshBtn.Font = Enum.Font.SourceSansBold
 Instance.new("UICorner", refreshBtn)
 
--- 数値をカンマ区切り（●,●M/s形式）にする関数
-local function formatDisplay(val)
-    local n = tonumber(val) or 0
+-- 単位変換（●,●M/s 形式）
+local function formatVal(v)
+    local n = tonumber(v) or 0
     local suffix = "/s"
-    local result = ""
+    local formatted = ""
     
     if n >= 1e9 then
-        result = string.format("%.1f", n/1e9)
+        formatted = string.format("%.1f", n/1e9)
         suffix = "B/s"
     elseif n >= 1e6 then
-        result = string.format("%.1f", n/1e6)
+        formatted = string.format("%.1f", n/1e6)
         suffix = "M/s"
     elseif n >= 1e3 then
-        result = string.format("%.1f", n/1e3)
+        formatted = string.format("%.1f", n/1e3)
         suffix = "K/s"
     else
-        result = string.format("%.1f", n)
+        formatted = tostring(math.floor(n))
     end
     
-    -- カンマ挿入
-    local left, right = result:match("^(%d+)(%.?%d*)$")
+    -- 3桁カンマ区切り
+    local left, right = formatted:match("^(%d+)(%.?%d*)$")
     left = left:reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
     return "$" .. left .. right .. suffix
 end
 
--- プレイヤーから数値を根こそぎ探す
-local function getPowerValue(p)
-    local targets = {"BrainrotPerSec", "Gain", "PerSec", "Cash", "Income"}
-    -- leaderstatsを優先
-    local ls = p:FindFirstChild("leaderstats")
-    if ls then
-        for _, t in pairs(targets) do
-            local v = ls:FindFirstChild(t)
-            if v and v:IsA("ValueBase") then return v.Value end
-        end
-    end
-    -- プレイヤー直下も探す
-    for _, obj in pairs(p:GetChildren()) do
-        if obj:IsA("NumberValue") or obj:IsA("IntValue") then
-            for _, t in pairs(targets) do
-                if obj.Name:find(t) then return obj.Value end
+-- プレイヤーの全フォルダから「稼ぎ」を探す
+local function getMoney(p)
+    local keywords = {"PerSec", "Gain", "Brainrot", "Income", "Cash"}
+    -- プレイヤー内のすべてのValueオブジェクトを確認
+    for _, obj in pairs(p:GetDescendants()) do
+        if obj:IsA("ValueBase") then
+            for _, key in pairs(keywords) do
+                if obj.Name:lower():find(key:lower()) then
+                    return obj.Value
+                end
             end
         end
     end
@@ -109,26 +91,41 @@ local function getPowerValue(p)
 end
 
 local function runScan()
-    -- リストをクリア
-    for _, child in pairs(scroll:GetChildren()) do
-        if child:IsA("Frame") then child:Destroy() end
-    end
+    for _, v in pairs(scroll:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end
     
-    -- 全プレイヤーをループ
-    for _, p in ipairs(game.Players:GetPlayers()) do
+    local players = game.Players:GetPlayers()
+    for _, p in ipairs(players) do
         if p == game.Players.LocalPlayer then continue end
         
-        local val = getPowerValue(p)
+        local val = getMoney(p)
         
-        local frame = Instance.new("Frame", scroll)
-        frame.Size = UDim2.new(1, -5, 0, 35)
-        frame.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-        Instance.new("UICorner", frame)
+        local f = Instance.new("Frame", scroll)
+        f.Size = UDim2.new(1, -5, 0, 38)
+        f.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        Instance.new("UICorner", f)
         
-        -- キャラ名（DisplayName）
-        local nameL = Instance.new("TextLabel", frame)
-        nameL.Size = UDim2.new(0.5, -10, 1, 0)
-        nameL.Position = UDim2.new(0, 10, 0, 0)
-        nameL.Text = p.DisplayName
+        -- 表示名（キャラ名）
+        local nameL = Instance.new("TextLabel", f)
+        nameL.Size = UDim2.new(0.5, -5, 1, 0)
+        nameL.Position = UDim2.new(0, 8, 0, 0)
+        nameL.Text = p.DisplayName or p.Name
         nameL.TextColor3 = Color3.new(1, 1, 1)
-        nameL
+        nameL.BackgroundTransparency = 1
+        nameL.TextXAlignment = Enum.TextXAlignment.Left
+        nameL.TextTruncate = Enum.TextTruncate.AtEnd
+        
+        -- 数値（黄色）
+        local valL = Instance.new("TextLabel", f)
+        valL.Size = UDim2.new(0.5, -10, 1, 0)
+        valL.Position = UDim2.new(0.5, 0, 0, 0)
+        valL.Text = formatVal(val)
+        valL.TextColor3 = Color3.new(1, 1, 0)
+        valL.BackgroundTransparency = 1
+        valL.TextXAlignment = Enum.TextXAlignment.Right
+    end
+end
+
+refreshBtn.MouseButton1Click:Connect(runScan)
+
+-- 起動時に少し待ってから実行（読み込み待ち）
+task.delay(1, runScan)
