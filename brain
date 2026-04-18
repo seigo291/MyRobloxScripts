@@ -1,183 +1,151 @@
--- 古いUIを徹底掃除
+-- 既存のUIを完全に削除
 local coreGui = game:GetService("CoreGui")
 for _, old in pairs(coreGui:GetChildren()) do
     if old.Name:match("ScannerFinal") then old:Destroy() end
 end
 
 local screenGui = Instance.new("ScreenGui", coreGui)
-screenGui.Name = "ScannerFinalV26"
+screenGui.Name = "ScannerFinalV27"
 screenGui.DisplayOrder = 999
 screenGui.ResetOnSpawn = false
 
--- メインパネル
+-- パネル設定
 local panel = Instance.new("Frame", screenGui)
-panel.Size = UDim2.new(0, 220, 0, 360) 
-panel.Position = UDim2.new(1, -230, 0.5, -180)
-panel.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+panel.Size = UDim2.new(0, 230, 0, 360) 
+panel.Position = UDim2.new(1, -240, 0.5, -180)
+panel.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 Instance.new("UICorner", panel)
 
--- ヘッダー
 local header = Instance.new("Frame", panel)
 header.Size = UDim2.new(1, 0, 0, 35)
-header.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+header.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
 Instance.new("UICorner", header)
 
-local function createTab(name, x, width)
+local function createTab(name, x)
     local btn = Instance.new("TextButton", header)
-    btn.Size = UDim2.new(width, -2, 1, 0)
+    btn.Size = UDim2.new(0.4, -2, 1, 0)
     btn.Position = UDim2.new(x, 0, 0, 0)
     btn.Text = name
     btn.TextColor3 = Color3.new(1, 1, 1)
-    btn.TextSize = 10
+    btn.TextSize = 11
     btn.Font = Enum.Font.SourceSansBold
     btn.BackgroundTransparency = 1
     return btn
 end
 
-local tabScan = createTab("SCAN", 0, 0.4)
-local tabServ = createTab("SERVERS", 0.4, 0.4)
+local tabScan = createTab("SCAN", 0.05)
+local tabServ = createTab("SERVERS", 0.45)
 
 local closeBtn = Instance.new("TextButton", header)
-closeBtn.Size = UDim2.new(0.2, 0, 1, 0)
-closeBtn.Position = UDim2.new(0.8, 0, 0, 0)
+closeBtn.Size = UDim2.new(0.1, 0, 1, 0)
+closeBtn.Position = UDim2.new(0.85, 0, 0, 0)
 closeBtn.Text = "×"
-closeBtn.TextColor3 = Color3.new(1, 0.3, 0.3)
-closeBtn.TextSize = 18
+closeBtn.TextColor3 = Color3.new(1, 0.2, 0.2)
+closeBtn.TextSize = 20
 closeBtn.BackgroundTransparency = 1
 closeBtn.MouseButton1Click:Connect(function() screenGui:Destroy() end)
 
--- スクロール
-local function createScroll(parent)
-    local s = Instance.new("ScrollingFrame", parent)
-    s.Size = UDim2.new(1, -10, 1, -90)
-    s.Position = UDim2.new(0, 5, 0, 40)
-    s.BackgroundTransparency = 1
-    s.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    s.ScrollBarThickness = 3
-    local l = Instance.new("UIListLayout", s)
-    l.Padding = UDim.new(0, 4)
-    return s
-end
-
-local scanPage = Instance.new("Frame", panel)
-scanPage.Size = UDim2.new(1, 0, 1, 0)
+local scanPage = Instance.new("ScrollingFrame", panel)
+scanPage.Size = UDim2.new(1, -10, 1, -95)
+scanPage.Position = UDim2.new(0, 5, 0, 40)
 scanPage.BackgroundTransparency = 1
-local scanScroll = createScroll(scanPage)
+scanPage.AutomaticCanvasSize = Enum.AutomaticSize.Y
+scanPage.ScrollBarThickness = 3
+local listL = Instance.new("UIListLayout", scanPage)
+listL.Padding = UDim.new(0, 5)
 
-local servPage = Instance.new("Frame", panel)
-servPage.Size = UDim2.new(1, 0, 1, 0)
-servPage.BackgroundTransparency = 1
-servPage.Visible = false
-local servScroll = createScroll(servPage)
+local refreshBtn = Instance.new("TextButton", panel)
+refreshBtn.Size = UDim2.new(0.9, 0, 0, 35)
+refreshBtn.Position = UDim2.new(0.05, 0, 1, -45)
+refreshBtn.Text = "SCAN RELOAD"
+refreshBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
+refreshBtn.TextColor3 = Color3.new(1, 1, 1)
+refreshBtn.Font = Enum.Font.SourceSansBold
+Instance.new("UICorner", refreshBtn)
 
--- 更新ボタン
-local function createRefreshBtn(parent, text)
-    local btn = Instance.new("TextButton", parent)
-    btn.Size = UDim2.new(0.9, 0, 0, 32)
-    btn.Position = UDim2.new(0.05, 0, 1, -45)
-    btn.Text = text
-    btn.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
-    btn.TextColor3 = Color3.new(1, 1, 1)
-    btn.TextSize = 13
-    btn.Font = Enum.Font.SourceSansBold
-    Instance.new("UICorner", btn)
-    return btn
-end
-
-local refreshScan = createRefreshBtn(scanPage, "SCAN RELOAD")
-local refreshServ = createRefreshBtn(servPage, "SERVER RELOAD")
-
--- リスト枠（キャラ名対応）
-local function addEntry(parent, nameText, valueText, isYellow)
-    local f = Instance.new("Frame", parent)
-    f.Size = UDim2.new(1, -5, 0, 35)
-    f.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-    Instance.new("UICorner", f)
-    
-    local nameL = Instance.new("TextLabel", f)
-    nameL.Size = UDim2.new(0.5, -5, 1, 0)
-    nameL.Position = UDim2.new(0, 8, 0, 0)
-    nameL.BackgroundTransparency = 1
-    nameL.Text = nameText -- ここにDisplayNameが入る
-    nameL.TextColor3 = Color3.new(1, 1, 1)
-    nameL.TextSize = 11
-    nameL.TextXAlignment = Enum.TextXAlignment.Left
-    nameL.TextTruncate = Enum.TextTruncate.AtEnd
-    
-    local valL = Instance.new("TextLabel", f)
-    valL.Size = UDim2.new(0.5, -10, 1, 0)
-    valL.Position = UDim2.new(0.5, 0, 0, 0)
-    valL.BackgroundTransparency = 1
-    valL.Text = valueText
-    valL.TextColor3 = isYellow and Color3.new(1, 1, 0) or Color3.new(1, 1, 1)
-    valL.TextSize = 10
-    valL.TextXAlignment = Enum.TextXAlignment.Right
-    
-    return f
-end
-
--- --- ロジック ---
-local function comma_value(n)
-    local left, num, right = string.match(n, '^([^%d]*%d+)(%d*)(.-)$')
-    if not left then return n end
-    return left .. (num:reverse():gsub('(%d%d%d)', '%1,'):reverse()) .. right
-end
-
-local function formatValue(p)
-    local stats = p:FindFirstChild("leaderstats")
-    if not stats then return "---" end
-    
-    -- ゲーム内で「稼ぎ」を指す可能性のある項目をすべてチェック
-    local target = stats:FindFirstChild("BrainrotPerSec") or stats:FindFirstChild("Gain") or stats:FindFirstChild("PerSec") or stats:FindFirstChild("Cash")
-    if not target then return "---" end
-    
-    local v = target.Value
+-- 数値のカンマ区切りと単位変換
+local function formatNum(v)
+    local formatted
+    local suffix = "/s"
     if v >= 1e9 then 
-        return comma_value(string.format("%.1f", v/1e9)) .. "B/s"
+        formatted = string.format("%.1f", v/1e9)
+        suffix = "B/s"
     elseif v >= 1e6 then 
-        return comma_value(string.format("%.1f", v/1e6)) .. "M/s"
+        formatted = string.format("%.1f", v/1e6)
+        suffix = "M/s"
     elseif v >= 1e3 then 
-        return comma_value(string.format("%.1f", v/1e3)) .. "K/s"
+        formatted = string.format("%.1f", v/1e3)
+        suffix = "K/s"
     else 
-        return comma_value(tostring(v)) .. "/s" 
+        formatted = tostring(math.floor(v))
     end
+    
+    -- カンマを入れる処理
+    local k
+    while true do
+        formatted, k = string.gsub(formatted, "^(-?%d+)(%d%d%d)", '%1,%2')
+        if k == 0 then break end
+    end
+    return formatted .. suffix
 end
 
-local function doScan()
-    for _, v in pairs(scanScroll:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end
+-- プレイヤーの数値データを徹底的に探す関数
+local function findCashValue(p)
+    local stats = p:FindFirstChild("leaderstats")
+    local foundVal = 0
+    
+    -- 探しに行く場所のリスト
+    local searchIn = {stats, p}
+    local keywords = {"PerSec", "Gain", "Rate", "Brainrot", "Income", "Cash"}
+    
+    for _, folder in pairs(searchIn) do
+        if folder then
+            for _, obj in pairs(folder:GetChildren()) do
+                if obj:IsA("ValueBase") then
+                    for _, key in pairs(keywords) do
+                        if obj.Name:lower():find(key:lower()) then
+                            return obj.Value
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return nil
+end
+
+local function updateScan()
+    for _, v in pairs(scanPage:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end
+    
     for _, p in ipairs(game.Players:GetPlayers()) do
         if p == game.Players.LocalPlayer then continue end
         
-        local score = formatValue(p)
-        -- p.DisplayName で「キャラの名前」を確実に取得
-        addEntry(scanScroll, p.DisplayName, score, true)
+        local val = findCashValue(p)
+        local scoreText = val and formatNum(val) or "0/s"
+        
+        local f = Instance.new("Frame", scanPage)
+        f.Size = UDim2.new(1, -5, 0, 38)
+        f.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        Instance.new("UICorner", f)
+        
+        local nameL = Instance.new("TextLabel", f)
+        nameL.Size = UDim2.new(0.5, -5, 1, 0)
+        nameL.Position = UDim2.new(0, 10, 0, 0)
+        nameL.BackgroundTransparency = 1
+        nameL.Text = p.DisplayName -- キャラ名（表示名）
+        nameL.TextColor3 = Color3.new(1, 1, 1)
+        nameL.TextXAlignment = Enum.TextXAlignment.Left
+        nameL.TextTruncate = Enum.TextTruncate.AtEnd
+        
+        local valL = Instance.new("TextLabel", f)
+        valL.Size = UDim2.new(0.5, -10, 1, 0)
+        valL.Position = UDim2.new(0.5, 0, 0, 0)
+        valL.BackgroundTransparency = 1
+        valL.Text = scoreText
+        valL.TextColor3 = Color3.new(1, 1, 0) -- 黄色
+        valL.TextXAlignment = Enum.TextXAlignment.Right
     end
 end
 
-local function doServers()
-    for _, v in pairs(servScroll:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end
-    local success, res = pcall(function()
-        return game:GetService("HttpService"):JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Asc&limit=25"))
-    end)
-    if success and res.data then
-        for _, s in pairs(res.data) do
-            if s.playing >= s.maxPlayers then continue end
-            local entry = addEntry(servScroll, s.playing .. "/" .. s.maxPlayers .. " (" .. (s.ping or "?") .. "ms)", "", false)
-            local j = Instance.new("TextButton", entry)
-            j.Size = UDim2.new(0.3, 0, 0.7, 0)
-            j.Position = UDim2.new(0.65, 0, 0.15, 0)
-            j.Text = "JOIN"
-            j.BackgroundColor3 = Color3.fromRGB(0, 150, 80)
-            j.TextColor3 = Color3.new(1, 1, 1)
-            Instance.new("UICorner", j)
-            j.MouseButton1Click:Connect(function() game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, s.id) end)
-        end
-    end
-end
-
-tabScan.MouseButton1Click:Connect(function() scanPage.Visible = true; servPage.Visible = false; doScan() end)
-tabServ.MouseButton1Click:Connect(function() scanPage.Visible = false; servPage.Visible = true; doServers() end)
-refreshScan.MouseButton1Click:Connect(doScan)
-refreshServ.MouseButton1Click:Connect(doServers)
-
-doScan()
+refreshBtn.MouseButton1Click:Connect(updateScan)
+updateScan()
