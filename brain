@@ -1,18 +1,18 @@
 -- 古いUIを掃除
 local coreGui = game:GetService("CoreGui")
 for _, old in pairs(coreGui:GetChildren()) do
-    if old.Name == "ScannerFinalV23" then old:Destroy() end
+    if old.Name == "ScannerFinalV25" then old:Destroy() end
 end
 
 local screenGui = Instance.new("ScreenGui", coreGui)
-screenGui.Name = "ScannerFinalV23"
+screenGui.Name = "ScannerFinalV25"
 screenGui.DisplayOrder = 999
 screenGui.ResetOnSpawn = false
 
--- メインパネル（高さを少し調整してボタンを見えやすく）
+-- メインパネル
 local panel = Instance.new("Frame", screenGui)
-panel.Size = UDim2.new(0, 200, 0, 360) 
-panel.Position = UDim2.new(1, -210, 0.5, -180)
+panel.Size = UDim2.new(0, 220, 0, 360) 
+panel.Position = UDim2.new(1, -230, 0.5, -180)
 panel.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 Instance.new("UICorner", panel)
 
@@ -64,7 +64,7 @@ closeBtn.MouseButton1Click:Connect(function() toggleUI(false) end)
 -- スクロール
 local function createScroll(parent)
     local s = Instance.new("ScrollingFrame", parent)
-    s.Size = UDim2.new(1, -10, 1, -85)
+    s.Size = UDim2.new(1, -10, 1, -90)
     s.Position = UDim2.new(0, 5, 0, 40)
     s.BackgroundTransparency = 1
     s.AutomaticCanvasSize = Enum.AutomaticSize.Y
@@ -85,15 +85,15 @@ servPage.BackgroundTransparency = 1
 servPage.Visible = false
 local servScroll = createScroll(servPage)
 
--- 更新ボタン（位置を少し上にずらして確実に表示）
+-- 更新ボタン
 local function createRefreshBtn(parent, text)
     local btn = Instance.new("TextButton", parent)
-    btn.Size = UDim2.new(0.9, 0, 0, 30)
-    btn.Position = UDim2.new(0.05, 0, 1, -45) -- 下から45pxの位置
+    btn.Size = UDim2.new(0.9, 0, 0, 32)
+    btn.Position = UDim2.new(0.05, 0, 1, -45)
     btn.Text = text
     btn.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
     btn.TextColor3 = Color3.new(1, 1, 1)
-    btn.TextSize = 12
+    btn.TextSize = 13
     btn.Font = Enum.Font.SourceSansBold
     Instance.new("UICorner", btn)
     return btn
@@ -102,7 +102,7 @@ end
 local refreshScan = createRefreshBtn(scanPage, "SCAN RELOAD")
 local refreshServ = createRefreshBtn(servPage, "SERVER RELOAD")
 
--- 共通リスト枠
+-- リスト枠
 local function addEntry(parent, nameText, valueText, isYellow)
     local f = Instance.new("Frame", parent)
     f.Size = UDim2.new(1, -5, 0, 35)
@@ -110,20 +110,21 @@ local function addEntry(parent, nameText, valueText, isYellow)
     Instance.new("UICorner", f)
     
     local nameL = Instance.new("TextLabel", f)
-    nameL.Size = UDim2.new(0.6, 0, 1, 0)
-    nameL.Position = UDim2.new(0, 5, 0, 0)
+    nameL.Size = UDim2.new(0.5, -5, 1, 0)
+    nameL.Position = UDim2.new(0, 8, 0, 0)
     nameL.BackgroundTransparency = 1
     nameL.Text = nameText
     nameL.TextColor3 = Color3.new(1, 1, 1)
-    nameL.TextSize = 10
+    nameL.TextSize = 11
     nameL.TextXAlignment = Enum.TextXAlignment.Left
+    nameL.TextTruncate = Enum.TextTruncate.AtEnd
     
     local valL = Instance.new("TextLabel", f)
-    valL.Size = UDim2.new(0.4, -5, 1, 0)
-    valL.Position = UDim2.new(0.6, 0, 0, 0)
+    valL.Size = UDim2.new(0.5, -10, 1, 0)
+    valL.Position = UDim2.new(0.5, 0, 0, 0)
     valL.BackgroundTransparency = 1
     valL.Text = valueText
-    valL.TextColor3 = isYellow and Color3.new(1, 1, 0) or Color3.new(1, 1, 1) -- 黄色指定
+    valL.TextColor3 = isYellow and Color3.new(1, 1, 0) or Color3.new(1, 1, 1)
     valL.TextSize = 10
     valL.TextXAlignment = Enum.TextXAlignment.Right
     
@@ -131,17 +132,36 @@ local function addEntry(parent, nameText, valueText, isYellow)
 end
 
 -- --- ロジック ---
+local function comma_value(n)
+    local left, num, right = string.match(n, '^([^%d]*%d+)(%d*)(.-)$')
+    return left .. (num:reverse():gsub('(%d%d%d)', '%1,'):reverse()) .. right
+end
+
+local function formatValue(val)
+    if not val then return "---" end
+    local v = val.Value
+    if typeof(v) == "number" then
+        if v >= 1e9 then 
+            return comma_value(string.format("%.1f", v/1e9)) .. "B/s"
+        elseif v >= 1e6 then 
+            return comma_value(string.format("%.1f", v/1e6)) .. "M/s"
+        elseif v >= 1e3 then 
+            return comma_value(string.format("%.1f", v/1e3)) .. "K/s"
+        else 
+            return comma_value(tostring(v)) .. "/s" 
+        end
+    end
+    return tostring(v) .. "/s"
+end
+
 local function doScan()
     for _, v in pairs(scanScroll:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end
     for _, p in ipairs(game.Players:GetPlayers()) do
         if p == game.Players.LocalPlayer then continue end
-        
         local stats = p:FindFirstChild("leaderstats")
-        -- 黄色の数値（$●/s）に相当する項目を優先
-        local val = stats and (stats:FindFirstChild("BrainrotPerSec") or stats:FindFirstChild("Gain") or stats:FindFirstChild("Cash"))
-        local score = val and ("$" .. tostring(val.Value) .. "/s") or "---"
-        
-        -- DisplayName（キャラ名）を使用
+        local val = stats and (stats:FindFirstChild("BrainrotPerSec") or stats:FindFirstChild("Gain") or stats:FindFirstChild("PerSec"))
+        local score = formatValue(val)
+        -- キャラ名（DisplayName）を表示
         addEntry(scanScroll, p.DisplayName, score, true)
     end
 end
