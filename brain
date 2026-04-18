@@ -1,10 +1,10 @@
--- 重複削除
+-- 古いUIを完全に削除
 for _, old in pairs(game.CoreGui:GetChildren()) do
-    if old.Name == "ScannerSystemV5" or old:FindFirstChild("SCAN") then old:Destroy() end
+    if old.Name == "ScannerSystemV6" or old:FindFirstChild("SCAN") then old:Destroy() end
 end
 
 local screenGui = Instance.new("ScreenGui", game.CoreGui)
-screenGui.Name = "ScannerSystemV5"
+screenGui.Name = "ScannerSystemV6"
 
 -- アイコン
 local icon = Instance.new("ImageButton", screenGui)
@@ -15,22 +15,25 @@ icon.Image = "rbxassetid://6031093116"
 icon.ImageColor3 = Color3.fromRGB(255, 255, 0)
 Instance.new("UICorner", icon).CornerRadius = UDim.new(1, 0)
 
--- パネル
+-- メインパネル
 local panel = Instance.new("Frame", screenGui)
-panel.Size = UDim2.new(0.5, 0, 0.6, 0)
-panel.Position = UDim2.new(1, -550, 0.2, 0)
+panel.Size = UDim2.new(0, 450, 0, 300) -- サイズを固定して安定させます
+panel.Position = UDim2.new(0.5, -225, 0.5, -150)
 panel.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+panel.BorderSizePixel = 0
+panel.ClipsDescendants = true -- これで枠外へのはみ出しを防止
 panel.Visible = false
 Instance.new("UICorner", panel)
 
--- 設定バー
+-- 設定バー（上部に固定）
 local bar = Instance.new("Frame", panel)
 bar.Size = UDim2.new(1, 0, 0, 60)
 bar.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+bar.BorderSizePixel = 0
 
 local function createInputGroup(placeholder, xPos)
     local input = Instance.new("TextBox", bar)
-    input.Size = UDim2.new(0.18, 0, 0.6, 0)
+    input.Size = UDim2.new(0, 80, 0, 35)
     input.Position = UDim2.new(xPos, 0, 0.2, 0)
     input.PlaceholderText = placeholder
     input.Text = ""
@@ -39,8 +42,8 @@ local function createInputGroup(placeholder, xPos)
     Instance.new("UICorner", input)
 
     local btn = Instance.new("TextButton", bar)
-    btn.Size = UDim2.new(0.12, 0, 0.6, 0)
-    btn.Position = UDim2.new(xPos + 0.19, 0, 0.2, 0)
+    btn.Size = UDim2.new(0, 50, 0, 35)
+    btn.Position = UDim2.new(xPos, 85, 0.2, 0)
     btn.Text = "M/s"
     btn.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
     btn.TextColor3 = Color3.new(1, 1, 1)
@@ -52,30 +55,39 @@ local function createInputGroup(placeholder, xPos)
     return input, btn
 end
 
-local minIn, minUnit = createInputGroup("Min", 0.02)
-local maxIn, maxUnit = createInputGroup("Max", 0.38)
+local minIn, minUnit = createInputGroup("Min", 0.05)
+local maxIn, maxUnit = createInputGroup("Max", 0.42)
 
 local scanBtn = Instance.new("TextButton", bar)
-scanBtn.Size = UDim2.new(0.15, 0, 0.6, 0)
-scanBtn.Position = UDim2.new(0.82, 0, 0.2, 0)
+scanBtn.Size = UDim2.new(0, 80, 0, 35)
+scanBtn.Position = UDim2.new(0.78, 0, 0.2, 0)
 scanBtn.Text = "SCAN"
 scanBtn.BackgroundColor3 = Color3.fromRGB(0, 180, 100)
 scanBtn.TextColor3 = Color3.new(1, 1, 1)
 Instance.new("UICorner", scanBtn)
 
--- リスト
+-- ★ スクロールエリア（ここが重要）
 local scroll = Instance.new("ScrollingFrame", panel)
-scroll.Size = UDim2.new(0.96, 0, 0.78, 0)
-scroll.Position = UDim2.new(0.02, 0, 0.2, 0)
+scroll.Size = UDim2.new(1, -20, 1, -70) -- 上のバーを除いた全領域
+scroll.Position = UDim2.new(0, 10, 0, 65)
 scroll.BackgroundTransparency = 1
-scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-Instance.new("UIListLayout", scroll).Padding = UDim.new(0, 5)
+scroll.BorderSizePixel = 0
+scroll.CanvasSize = UDim2.new(0, 0, 0, 0) -- 横スクロールを無効化
+scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y -- 縦にのみ自動で伸びる
+scroll.ScrollingDirection = Enum.ScrollingDirection.Y -- 縦スクロールのみに限定
+scroll.ScrollBarThickness = 6
+scroll.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 100)
+scroll.ClipsDescendants = true -- 枠内でのみ表示
 
--- 文字列から数字を抽出して計算する関数
+local layout = Instance.new("UIListLayout", scroll)
+layout.Padding = UDim.new(0, 8)
+layout.SortOrder = Enum.SortOrder.LayoutOrder
+
+-- ロジック
 local function parseValue(val)
     if type(val) == "number" then return val end
     if type(val) == "string" then
-        local s = val:gsub("[^%d%.]", "") -- 数字とドット以外を削除
+        local s = val:gsub("[^%d%.]", "")
         local n = tonumber(s) or 0
         if val:match("B") then return n * 10^9 end
         if val:match("M") then return n * 10^6 end
@@ -92,19 +104,17 @@ scanBtn.MouseButton1Click:Connect(function()
     local minVal = (tonumber(minIn.Text) or 0) * mUnit
     local maxVal = (tonumber(maxIn.Text) or 9e18) * mxUnit
     
-    local found = 0
     for _, p in ipairs(game.Players:GetPlayers()) do
         local leaderstats = p:FindFirstChild("leaderstats")
         local stat = leaderstats and (leaderstats:FindFirstChild("BrainrotPerSec") or leaderstats:FindFirstChild("Gain") or leaderstats:FindFirstChild("Cash"))
         
         if stat then
             local currentVal = parseValue(stat.Value)
-            
             if currentVal >= minVal and currentVal <= maxVal then
-                found = found + 1
                 local f = Instance.new("Frame", scroll)
-                f.Size = UDim2.new(0.95, 0, 0, 50)
-                f.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+                f.Size = UDim2.new(1, -10, 0, 50) -- スクロールバーに被らないよう少し短く
+                f.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+                f.BorderSizePixel = 0
                 Instance.new("UICorner", f)
 
                 local t = Instance.new("TextLabel", f)
@@ -112,9 +122,9 @@ scanBtn.MouseButton1Click:Connect(function()
                 t.Position = UDim2.new(0.05, 0, 0, 0)
                 t.BackgroundTransparency = 1
                 t.TextColor3 = Color3.new(1, 1, 1)
+                t.TextSize = 14
                 t.TextXAlignment = Enum.TextXAlignment.Left
                 
-                -- 表示用の整形（単位付き）
                 local display = (currentVal >= 10^9) and string.format("%.1f B/s", currentVal/10^9) or string.format("%.1f M/s", currentVal/10^6)
                 t.Text = p.Name .. "\n報酬: " .. display
             end
