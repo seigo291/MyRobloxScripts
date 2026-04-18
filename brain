@@ -1,16 +1,16 @@
 -- 古いUIを完全に削除
 for _, old in pairs(game.CoreGui:GetChildren()) do
-    if old.Name == "ScannerSystemFinal" or old:FindFirstChild("SCAN") then old:Destroy() end
+    if old.Name == "ScannerSystemUltra" or old:FindFirstChild("SCAN") then old:Destroy() end
 end
 
 local screenGui = Instance.new("ScreenGui", game.CoreGui)
-screenGui.Name = "ScannerSystemFinal"
+screenGui.Name = "ScannerSystemUltra"
 
--- アイコン
+-- アイコン（雷マーク）
 local icon = Instance.new("ImageButton", screenGui)
 icon.Size = UDim2.new(0, 60, 0, 60)
 icon.Position = UDim2.new(1, -70, 0.5, 0)
-icon.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+icon.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 icon.Image = "rbxassetid://6031093116"
 icon.ImageColor3 = Color3.fromRGB(255, 255, 0)
 Instance.new("UICorner", icon).CornerRadius = UDim.new(1, 0)
@@ -19,28 +19,28 @@ Instance.new("UICorner", icon).CornerRadius = UDim.new(1, 0)
 local panel = Instance.new("Frame", screenGui)
 panel.Size = UDim2.new(0.5, 0, 0.6, 0)
 panel.Position = UDim2.new(1, -550, 0.2, 0)
-panel.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+panel.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 panel.Visible = false
 Instance.new("UICorner", panel)
 
 -- 設定バー
 local bar = Instance.new("Frame", panel)
 bar.Size = UDim2.new(1, 0, 0, 60)
-bar.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+bar.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
 
 local function createInputGroup(placeholder, xPos)
     local input = Instance.new("TextBox", bar)
-    input.Size = UDim2.new(0.2, 0, 0.6, 0)
+    input.Size = UDim2.new(0.18, 0, 0.6, 0)
     input.Position = UDim2.new(xPos, 0, 0.2, 0)
     input.PlaceholderText = placeholder
-    input.Text = "" -- 初期状態は空
+    input.Text = ""
     input.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
     input.TextColor3 = Color3.new(1, 1, 1)
     Instance.new("UICorner", input)
 
     local btn = Instance.new("TextButton", bar)
     btn.Size = UDim2.new(0.12, 0, 0.6, 0)
-    btn.Position = UDim2.new(xPos + 0.21, 0, 0.2, 0)
+    btn.Position = UDim2.new(xPos + 0.19, 0, 0.2, 0)
     btn.Text = "M/s"
     btn.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
     btn.TextColor3 = Color3.new(1, 1, 1)
@@ -53,7 +53,7 @@ local function createInputGroup(placeholder, xPos)
 end
 
 local minIn, minUnit = createInputGroup("Min", 0.02)
-local maxIn, maxUnit = createInputGroup("Max", 0.42)
+local maxIn, maxUnit = createInputGroup("Max", 0.38)
 
 local scanBtn = Instance.new("TextButton", bar)
 scanBtn.Size = UDim2.new(0.15, 0, 0.6, 0)
@@ -63,7 +63,7 @@ scanBtn.BackgroundColor3 = Color3.fromRGB(0, 180, 100)
 scanBtn.TextColor3 = Color3.new(1, 1, 1)
 Instance.new("UICorner", scanBtn)
 
--- リストエリア
+-- リスト
 local scroll = Instance.new("ScrollingFrame", panel)
 scroll.Size = UDim2.new(0.96, 0, 0.78, 0)
 scroll.Position = UDim2.new(0.02, 0, 0.2, 0)
@@ -71,76 +71,70 @@ scroll.BackgroundTransparency = 1
 scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 Instance.new("UIListLayout", scroll).Padding = UDim.new(0, 5)
 
--- ログ表示用
-local function showMsg(txt, color)
-    local l = Instance.new("TextLabel", scroll)
-    l.Size = UDim2.new(1, 0, 0, 30)
-    l.Text = txt
-    l.TextColor3 = color or Color3.new(1, 1, 1)
-    l.BackgroundTransparency = 1
-end
-
--- ロジック
+-- 補助関数
 local function getMult(txt) return (txt == "B/s") and 10^9 or 10^6 end
 
-scanBtn.MouseButton1Click:Connect(function()
-    for _, v in pairs(scroll:GetChildren()) do if v:IsA("Frame") or v:IsA("TextLabel") then v:Destroy() end end
+-- 数値をあらゆる場所から探す関数
+local function findValue(player)
+    -- 探す場所のリスト
+    local targets = {
+        player:FindFirstChild("leaderstats"),
+        player:FindFirstChild("Data"),
+        player:FindFirstChild("Stats"),
+        player:FindFirstChild("PlayerGui")
+    }
     
-    -- 入力が空の場合はデフォルト値を設定 (Min=0, Max=無限)
-    local minNum = tonumber(minIn.Text) or 0
-    local maxNum = tonumber(maxIn.Text) or 999999999
-    local minVal = minNum * getMult(minUnit.Text)
-    local maxVal = maxNum * getMult(maxUnit.Text)
-    
-    showMsg("Searching...", Color3.new(1, 1, 0))
-    
-    local found = 0
-    for _, p in ipairs(game.Players:GetPlayers()) do
-        -- プレイヤーの統計データをより広く探す
-        local dataFolders = {p:FindFirstChild("leaderstats"), p:FindFirstChild("Data"), p:FindFirstChild("Stats"), p:FindFirstChild("PlayerGui")}
-        
-        for _, folder in pairs(dataFolders) do
-            if folder then
-                -- BrainrotPerSec だけでなく Gain や Cash なども対象にする
-                for _, v in pairs(folder:GetChildren()) do
-                    if v.Name:match("PerSec") or v.Name:match("Gain") or v.Name:match("Rate") or v.Name == "Value" then
-                        local currentVal = tonumber(v.Value) or 0
-                        if currentVal >= minVal and currentVal <= maxVal then
-                            found = found + 1
-                            local f = Instance.new("Frame", scroll)
-                            f.Size = UDim2.new(0.95, 0, 0, 50)
-                            f.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-                            Instance.new("UICorner", f)
-
-                            local t = Instance.new("TextLabel", f)
-                            t.Size = UDim2.new(0.7, 0, 1, 0)
-                            t.Position = UDim2.new(0.05, 0, 0, 0)
-                            t.BackgroundTransparency = 1
-                            t.TextColor3 = Color3.new(1, 1, 1)
-                            t.TextXAlignment = Enum.TextXAlignment.Left
-                            
-                            -- 表示用に単位を変換
-                            local disp = currentVal >= 10^9 and string.format("%.1f B/s", currentVal/10^9) or string.format("%.1f M/s", currentVal/10^6)
-                            t.Text = p.Name .. "\n" .. disp
-                            
-                            local go = Instance.new("TextButton", f)
-                            go.Size = UDim2.new(0.2, 0, 0.7, 0)
-                            go.Position = UDim2.new(0.75, 0, 0.15, 0)
-                            go.Text = "Check"
-                            go.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
-                            go.TextColor3 = Color3.new(1, 1, 1)
-                            Instance.new("UICorner", go)
-                        end
+    for _, folder in pairs(targets) do
+        if folder then
+            -- 「PerSec」「Rate」「Brainrot」「Gain」「Value」という文字が含まれる数値を探す
+            for _, v in pairs(folder:GetDescendants()) do
+                if (v:IsA("NumberValue") or v:IsA("IntValue")) then
+                    if v.Name:match("PerSec") or v.Name:match("Rate") or v.Name:match("Brain") or v.Name:match("Gain") then
+                        return tonumber(v.Value)
                     end
                 end
             end
         end
     end
+    return nil
+end
+
+scanBtn.MouseButton1Click:Connect(function()
+    for _, v in pairs(scroll:GetChildren()) do if v:IsA("Frame") or v:IsA("TextLabel") then v:Destroy() end end
     
-    if found == 0 then
-        showMsg("No players in this range.", Color3.new(1, 0.3, 0.3))
-    else
-        showMsg("Found " .. found .. " players", Color3.new(0.3, 1, 0.3))
+    local minVal = (tonumber(minIn.Text) or 0) * getMult(minUnit.Text)
+    local maxVal = (tonumber(maxIn.Text) or 9e18) * getMult(maxUnit.Text)
+    
+    local foundCount = 0
+    for _, p in ipairs(game.Players:GetPlayers()) do
+        local val = findValue(p)
+        
+        -- 数値が見つかり、かつ範囲内なら表示
+        if val and val >= minVal and val <= maxVal then
+            foundCount = foundCount + 1
+            local f = Instance.new("Frame", scroll)
+            f.Size = UDim2.new(0.95, 0, 0, 50)
+            f.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+            Instance.new("UICorner", f)
+
+            local t = Instance.new("TextLabel", f)
+            t.Size = UDim2.new(0.7, 0, 1, 0)
+            t.Position = UDim2.new(0.05, 0, 0, 0)
+            t.BackgroundTransparency = 1
+            t.TextColor3 = Color3.new(1, 1, 1)
+            t.TextXAlignment = Enum.TextXAlignment.Left
+            
+            local display = val >= 10^9 and string.format("%.1f B/s", val/10^9) or string.format("%.1f M/s", val/10^6)
+            t.Text = p.Name .. "\nRate: " .. display
+        end
+    end
+    
+    if foundCount == 0 then
+        local err = Instance.new("TextLabel", scroll)
+        err.Size = UDim2.new(1, 0, 0, 40)
+        err.Text = "No players found. Try clearing Min/Max."
+        err.TextColor3 = Color3.new(1, 0.4, 0.4)
+        err.BackgroundTransparency = 1
     end
 end)
 
