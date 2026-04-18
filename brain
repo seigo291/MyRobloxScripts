@@ -1,71 +1,58 @@
-local TeleportService = game:GetService("TeleportService")
-local HttpService = game:GetService("HttpService")
-local Players = game:GetService("Players")
+-- 重複防止
+local old = game.CoreGui:FindFirstChild("ScannerSystemV3")
+if old then old:Destroy() end
 
--- ==========================================
--- 初期設定
--- ==========================================
-local unitMultiplier = 10^6
-local ICON_IMAGE = "rbxassetid://6031093116"
-
--- 既存のGUIを削除（重複防止）
-local oldGui = game.CoreGui:FindFirstChild("ScannerSystem")
-if oldGui then oldGui:Destroy() end
-
--- ==========================================
--- GUI作成
--- ==========================================
 local screenGui = Instance.new("ScreenGui", game.CoreGui)
-screenGui.Name = "ScannerSystem"
+screenGui.Name = "ScannerSystemV3"
 
+-- アイコン作成
 local icon = Instance.new("ImageButton", screenGui)
 icon.Size = UDim2.new(0, 60, 0, 60)
 icon.Position = UDim2.new(1, -70, 0.5, 0)
 icon.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-icon.Image = ICON_IMAGE
+icon.Image = "rbxassetid://6031093116"
 icon.ImageColor3 = Color3.fromRGB(255, 255, 0)
 Instance.new("UICorner", icon).CornerRadius = UDim.new(1, 0)
 
+-- パネル作成
 local panel = Instance.new("Frame", screenGui)
-panel.Size = UDim2.new(0.35, 0, 0.6, 0)
-panel.Position = UDim2.new(1, -400, 0.2, 0)
+panel.Size = UDim2.new(0.4, 0, 0.6, 0)
+panel.Position = UDim2.new(1, -450, 0.2, 0)
 panel.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 panel.Visible = false
 Instance.new("UICorner", panel)
 
-local configBar = Instance.new("Frame", panel)
-configBar.Size = UDim2.new(1, 0, 0, 60)
-configBar.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+-- 設定バー
+local bar = Instance.new("Frame", panel)
+bar.Size = UDim2.new(1, 0, 0, 50)
+bar.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 
-local minInput = Instance.new("TextBox", configBar)
-minInput.Size = UDim2.new(0.25, 0, 0.6, 0)
-minInput.Position = UDim2.new(0.03, 0, 0.2, 0)
-minInput.Text = ""
-minInput.PlaceholderText = "0 (Min)"
-minInput.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-minInput.TextColor3 = Color3.new(1, 1, 1)
-Instance.new("UICorner", minInput)
+local function createInput(placeholder, pos)
+    local i = Instance.new("TextBox", bar)
+    i.Size = UDim2.new(0.2, 0, 0.7, 0)
+    i.Position = pos
+    i.PlaceholderText = placeholder
+    i.Text = ""
+    i.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    i.TextColor3 = Color3.new(1, 1, 1)
+    Instance.new("UICorner", i)
+    return i
+end
 
-local maxInput = Instance.new("TextBox", configBar)
-maxInput.Size = UDim2.new(0.25, 0, 0.6, 0)
-maxInput.Position = UDim2.new(0.35, 0, 0.2, 0)
-maxInput.Text = "100"
-maxInput.PlaceholderText = "Max"
-maxInput.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-maxInput.TextColor3 = Color3.new(1, 1, 1)
-Instance.new("UICorner", maxInput)
+local minIn = createInput("Min", UDim2.new(0.05, 0, 0.15, 0))
+local maxIn = createInput("Max", UDim2.new(0.3, 0, 0.15, 0))
 
-local unitBtn = Instance.new("TextButton", configBar)
-unitBtn.Size = UDim2.new(0.15, 0, 0.6, 0)
-unitBtn.Position = UDim2.new(0.63, 0, 0.2, 0)
+local unitBtn = Instance.new("TextButton", bar)
+unitBtn.Size = UDim2.new(0.15, 0, 0.7, 0)
+unitBtn.Position = UDim2.new(0.55, 0, 0.15, 0)
 unitBtn.Text = "M/s"
 unitBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
 unitBtn.TextColor3 = Color3.new(1, 1, 1)
 Instance.new("UICorner", unitBtn)
 
-local scanBtn = Instance.new("TextButton", configBar)
-scanBtn.Size = UDim2.new(0.15, 0, 0.6, 0)
-scanBtn.Position = UDim2.new(0.81, 0, 0.2, 0)
+local scanBtn = Instance.new("TextButton", bar)
+scanBtn.Size = UDim2.new(0.2, 0, 0.7, 0)
+scanBtn.Position = UDim2.new(0.75, 0, 0.15, 0)
 scanBtn.Text = "SCAN"
 scanBtn.BackgroundColor3 = Color3.fromRGB(0, 180, 100)
 scanBtn.TextColor3 = Color3.new(1, 1, 1)
@@ -73,68 +60,39 @@ Instance.new("UICorner", scanBtn)
 
 local scroll = Instance.new("ScrollingFrame", panel)
 scroll.Size = UDim2.new(0.9, 0, 0.8, 0)
-scroll.Position = UDim2.new(0.05, 0, 0.18, 0)
+scroll.Position = UDim2.new(0.05, 0, 0.2, 0)
 scroll.BackgroundTransparency = 1
 scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 Instance.new("UIListLayout", scroll).Padding = UDim.new(0, 5)
 
--- ==========================================
--- ロジック
--- ==========================================
+-- 動作
+local mult = 10^6
 unitBtn.MouseButton1Click:Connect(function()
-    if unitBtn.Text == "M/s" then
-        unitBtn.Text = "B/s"
-        unitMultiplier = 10^9
-    else
-        unitBtn.Text = "M/s"
-        unitMultiplier = 10^6
-    end
+    if unitBtn.Text == "M/s" then unitBtn.Text = "B/s" mult = 10^9 else unitBtn.Text = "M/s" mult = 10^6 end
 end)
 
-local function addEntry(name, speed, jobId)
-    local item = Instance.new("Frame", scroll)
-    item.Size = UDim2.new(1, 0, 0, 50)
-    item.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-    Instance.new("UICorner", item)
-    
-    local info = Instance.new("TextLabel", item)
-    info.Size = UDim2.new(0.7, 0, 1, 0)
-    info.Position = UDim2.new(0.05, 0, 0, 0)
-    info.Text = string.format("%s\nRate: %.1f%s", name, speed/unitMultiplier, unitBtn.Text)
-    info.TextColor3 = Color3.new(1, 1, 1)
-    info.TextXAlignment = Enum.TextXAlignment.Left
-    info.BackgroundTransparency = 1
-    
-    local btn = Instance.new("TextButton", item)
-    btn.Size = UDim2.new(0.25, 0, 0.6, 0)
-    btn.Position = UDim2.new(0.7, 0, 0.2, 0)
-    btn.Text = "GO"
-    btn.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
-    btn.TextColor3 = Color3.new(1, 1, 1)
-    Instance.new("UICorner", btn)
-    
-    btn.MouseButton1Click:Connect(function()
-        TeleportService:TeleportToPlaceInstance(game.PlaceId, jobId, Players.LocalPlayer)
-    end)
-end
-
-local function refresh()
+scanBtn.MouseButton1Click:Connect(function()
     for _, v in pairs(scroll:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end
-    local minV = tonumber(minInput.Text) or 0
-    local maxV = tonumber(maxInput.Text) or 999999999
-    local found = 0
-    for _, p in ipairs(Players:GetPlayers()) do
+    local minV = tonumber(minIn.Text) or 0
+    local maxV = tonumber(maxIn.Text) or 9e18
+    for _, p in ipairs(game.Players:GetPlayers()) do
         local stats = p:FindFirstChild("leaderstats") or p:FindFirstChild("Data")
-        local speed = stats and (stats:FindFirstChild("BrainrotPerSec") or stats:FindFirstChild("Gain") or stats:FindFirstChild("CashPerSec"))
-        if speed then
-            local val = speed.Value / unitMultiplier
+        local s = stats and (stats:FindFirstChild("BrainrotPerSec") or stats:FindFirstChild("Gain") or stats:FindFirstChild("CashPerSec"))
+        if s then
+            local val = s.Value / mult
             if val >= minV and val <= maxV then
-                addEntry(p.Name, speed.Value, game.JobId)
-                found = found + 1
+                local f = Instance.new("Frame", scroll)
+                f.Size = UDim2.new(1, 0, 0, 40)
+                f.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+                local t = Instance.new("TextLabel", f)
+                t.Size = UDim2.new(1, 0, 1, 0)
+                t.Text = p.Name .. " : " .. (s.Value/mult) .. unitBtn.Text
+                t.TextColor3 = Color3.new(1,1,1)
+                t.BackgroundTransparency = 1
             end
         end
     end
-end
+end)
 
-scanBtn.MouseButton1Click:Connect(refresh)
 icon.MouseButton1Click:Connect(function() panel.Visible = not panel.Visible end)
+print("Scanner Loaded!") -- 出力ログに表示
