@@ -1,133 +1,37 @@
-local TeleportService = game:GetService("TeleportService")
-local HttpService = game:GetService("HttpService")
-local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
+-- 中略（上の方は同じ）
 
--- ==========================================
--- 設定エリア
--- ==========================================
-local MIN_SPEED = 10 * 10^6
-local MAX_SPEED = 100 * 10^6
-local ICON_IMAGE = "rbxassetid://6031093116" -- 雷マーク
-local isScanning = false -- 二重実行防止用
-
--- ==========================================
--- GUI作成
--- ==========================================
-local screenGui = Instance.new("ScreenGui", game.CoreGui)
-screenGui.Name = "SafeBrainrotScanner"
-
--- 雷アイコン
-local icon = Instance.new("ImageButton", screenGui)
-icon.Size = UDim2.new(0, 60, 0, 60)
-icon.AnchorPoint = Vector2.new(1, 0.5)
-icon.Position = UDim2.new(1, -10, 0.5, 0)
-icon.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-icon.Image = ICON_IMAGE
-icon.ImageColor3 = Color3.fromRGB(255, 255, 0)
-local iconCorner = Instance.new("UICorner", icon)
-iconCorner.CornerRadius = UDim.new(1, 0)
-Instance.new("UIStroke", icon).Color = Color3.new(1, 1, 1)
-
--- パネル
-local panel = Instance.new("Frame", screenGui)
-panel.Size = UDim2.new(0.25, 0, 0.5, 0)
-panel.AnchorPoint = Vector2.new(1, 0.5)
-panel.Position = UDim2.new(1, -80, 0.5, 0)
-panel.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-panel.Visible = false
-Instance.new("UICorner", panel)
-
-local scroll = Instance.new("ScrollingFrame", panel)
-scroll.Size = UDim2.new(0.9, 0, 0.85, 0)
-scroll.Position = UDim2.new(0.05, 0, 0.1, 0)
-scroll.BackgroundTransparency = 1
-scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-scroll.ScrollBarThickness = 3
-
-local layout = Instance.new("UIListLayout", scroll)
-layout.Padding = UDim.new(0, 5)
-layout.SortOrder = Enum.SortOrder.LayoutOrder
-
--- ==========================================
--- 機能ロジック
--- ==========================================
-
--- リストへの追加
-local function addEntry(name, speed, jobId)
-    local item = Instance.new("Frame", scroll)
-    item.Size = UDim2.new(1, 0, 0, 45)
-    item.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    item.LayoutOrder = 1000000000 - math.floor(speed / 1000)
-    Instance.new("UICorner", item)
-    
-    local info = Instance.new("TextLabel", item)
-    info.Size = UDim2.new(0.7, 0, 1, 0)
-    info.Position = UDim2.new(0.05, 0, 0, 0)
-    info.Text = name .. "\n" .. string.format("%.1fM/s", speed/10^6)
-    info.TextColor3 = Color3.new(1, 1, 1)
-    info.BackgroundTransparency = 1
-    info.TextXAlignment = Enum.TextXAlignment.Left
-    
-    local btn = Instance.new("TextButton", item)
-    btn.Size = UDim2.new(0.25, 0, 0.7, 0)
-    btn.Position = UDim2.new(0.7, 0, 0.15, 0)
-    btn.Text = "GO"
-    btn.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
-    btn.TextColor3 = Color3.new(1, 1, 1)
-    Instance.new("UICorner", btn)
-    
-    btn.MouseButton1Click:Connect(function()
-        -- 安全のための短いランダム待機
-        task.wait(math.random(1, 5) / 10)
-        TeleportService:TeleportToPlaceInstance(game.PlaceId, jobId, Players.LocalPlayer)
-    end)
-end
-
--- 高速スキャン (外部サーバー情報取得の模倣)
 local function refresh()
     if isScanning then return end
     isScanning = true
     
-    -- リスト清掃
     for _, v in pairs(scroll:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end
 
-    -- 現在のサーバーをまずチェック
+    local foundCount = 0
     for _, p in ipairs(Players:GetPlayers()) do
         local stats = p:FindFirstChild("leaderstats")
-        local speed = stats and (stats:FindFirstChild("BrainrotPerSec") or stats:FindFirstChild("Gain"))
+        -- ★ ここを強化！ ゲームによって名前が違うので、一般的ないくつかの名前を探します
+        local speed = stats and (
+            stats:FindFirstChild("BrainrotPerSec") or 
+            stats:FindFirstChild("Gain") or 
+            stats:FindFirstChild("Cash") or 
+            stats:FindFirstChild("Power")
+        )
+        
         if speed and speed.Value >= MIN_SPEED and speed.Value <= MAX_SPEED then
             addEntry(p.Name, speed.Value, game.JobId)
+            foundCount = foundCount + 1
         end
     end
 
-    -- クールダウン（API負荷軽減）
+    -- もし誰も見つからなかったら「No Targets」と表示
+    if foundCount == 0 then
+        local empty = Instance.new("TextLabel", scroll)
+        empty.Size = UDim2.new(1, 0, 0, 40)
+        empty.Text = "No Targets Found"
+        empty.TextColor3 = Color3.new(1, 0, 0)
+        empty.BackgroundTransparency = 1
+    end
+
     task.wait(2)
     isScanning = false
 end
-
--- アイコントグル
-icon.MouseButton1Click:Connect(function()
-    panel.Visible = not panel.Visible
-    if panel.Visible then refresh() end
-end)
-
--- ドラッグ機能
-local dragging, dragStart, startPos
-icon.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = true
-        dragStart = input.Position
-        startPos = icon.Position
-    end
-end)
-UserInputService.InputChanged:Connect(function(input)
-    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-        local delta = input.Position - dragStart
-        icon.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-    end
-end)
-icon.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
-end)
