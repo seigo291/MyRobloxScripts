@@ -1,11 +1,11 @@
--- 既存のUIを確実にクリア
+-- 掃除
 local coreGui = game:GetService("CoreGui")
 for _, old in pairs(coreGui:GetChildren()) do
     if old.Name:match("ScannerFinal") then old:Destroy() end
 end
 
 local screenGui = Instance.new("ScreenGui", coreGui)
-screenGui.Name = "ScannerFinalV29"
+screenGui.Name = "ScannerFinalV30"
 screenGui.DisplayOrder = 999
 screenGui.ResetOnSpawn = false
 
@@ -13,119 +13,175 @@ screenGui.ResetOnSpawn = false
 local panel = Instance.new("Frame", screenGui)
 panel.Size = UDim2.new(0, 230, 0, 360) 
 panel.Position = UDim2.new(1, -240, 0.5, -180)
-panel.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+panel.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 Instance.new("UICorner", panel)
 
--- タイトル
+-- 起動アイコン（閉じている時）
+local openIcon = Instance.new("ImageButton", screenGui)
+openIcon.Size = UDim2.new(0, 45, 0, 45)
+openIcon.Position = UDim2.new(1, -50, 0.5, -22)
+openIcon.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+openIcon.Image = "rbxassetid://6031093116"
+openIcon.Visible = false
+Instance.new("UICorner", openIcon).CornerRadius = UDim.new(1, 0)
+
+local function toggleUI(show)
+    panel.Visible = show
+    openIcon.Visible = not show
+end
+openIcon.MouseButton1Click:Connect(function() toggleUI(true) end)
+
+-- ヘッダー
 local header = Instance.new("Frame", panel)
 header.Size = UDim2.new(1, 0, 0, 35)
-header.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+header.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
 Instance.new("UICorner", header)
 
-local title = Instance.new("TextLabel", header)
-title.Size = UDim2.new(1, 0, 1, 0)
-title.Text = "PLAYER SCAN"
-title.TextColor3 = Color3.new(1, 1, 1)
-title.Font = Enum.Font.SourceSansBold
-title.BackgroundTransparency = 1
-
--- リスト表示エリア
-local scroll = Instance.new("ScrollingFrame", panel)
-scroll.Size = UDim2.new(1, -10, 1, -95)
-scroll.Position = UDim2.new(0, 5, 0, 40)
-scroll.BackgroundTransparency = 1
-scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-scroll.ScrollBarThickness = 3
-local listLayout = Instance.new("UIListLayout", scroll)
-listLayout.Padding = UDim.new(0, 5)
-
--- リロードボタン
-local refreshBtn = Instance.new("TextButton", panel)
-refreshBtn.Size = UDim2.new(0.9, 0, 0, 35)
-refreshBtn.Position = UDim2.new(0.05, 0, 1, -45)
-refreshBtn.Text = "SCAN RELOAD"
-refreshBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
-refreshBtn.TextColor3 = Color3.new(1, 1, 1)
-refreshBtn.Font = Enum.Font.SourceSansBold
-Instance.new("UICorner", refreshBtn)
-
--- 単位変換（●,●M/s 形式）
-local function formatVal(v)
-    local n = tonumber(v) or 0
-    local suffix = "/s"
-    local formatted = ""
-    
-    if n >= 1e9 then
-        formatted = string.format("%.1f", n/1e9)
-        suffix = "B/s"
-    elseif n >= 1e6 then
-        formatted = string.format("%.1f", n/1e6)
-        suffix = "M/s"
-    elseif n >= 1e3 then
-        formatted = string.format("%.1f", n/1e3)
-        suffix = "K/s"
-    else
-        formatted = tostring(math.floor(n))
-    end
-    
-    -- 3桁カンマ区切り
-    local left, right = formatted:match("^(%d+)(%.?%d*)$")
-    left = left:reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
-    return "$" .. left .. right .. suffix
+local function createTab(name, x, width)
+    local btn = Instance.new("TextButton", header)
+    btn.Size = UDim2.new(width, -2, 1, 0)
+    btn.Position = UDim2.new(x, 0, 0, 0)
+    btn.Text = name
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.Font = Enum.Font.SourceSansBold
+    btn.TextSize = 10
+    btn.BackgroundTransparency = 1
+    return btn
 end
 
--- プレイヤーの全フォルダから「稼ぎ」を探す
+local tabScan = createTab("SCAN", 0, 0.4)
+local tabServ = createTab("SERVERS", 0.4, 0.4)
+
+local closeBtn = Instance.new("TextButton", header)
+closeBtn.Size = UDim2.new(0.2, 0, 1, 0)
+closeBtn.Position = UDim2.new(0.8, 0, 0, 0)
+closeBtn.Text = "×"
+closeBtn.TextColor3 = Color3.new(1, 0.3, 0.3)
+closeBtn.TextSize = 20
+closeBtn.BackgroundTransparency = 1
+closeBtn.MouseButton1Click:Connect(function() toggleUI(false) end)
+
+-- スクロールエリア
+local function createScroll(parent)
+    local s = Instance.new("ScrollingFrame", parent)
+    s.Size = UDim2.new(1, -10, 1, -95)
+    s.Position = UDim2.new(0, 5, 0, 40)
+    s.BackgroundTransparency = 1
+    s.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    s.ScrollBarThickness = 3
+    Instance.new("UIListLayout", s).Padding = UDim.new(0, 5)
+    return s
+end
+
+local scanPage = Instance.new("Frame", panel)
+scanPage.Size = UDim2.new(1, 0, 1, 0)
+scanPage.BackgroundTransparency = 1
+local scanScroll = createScroll(scanPage)
+
+local servPage = Instance.new("Frame", panel)
+servPage.Size = UDim2.new(1, 0, 1, 0)
+servPage.BackgroundTransparency = 1
+servPage.Visible = false
+local servScroll = createScroll(servPage)
+
+-- 更新ボタン
+local function createRefreshBtn(parent, text)
+    local btn = Instance.new("TextButton", parent)
+    btn.Size = UDim2.new(0.9, 0, 0, 35)
+    btn.Position = UDim2.new(0.05, 0, 1, -45)
+    btn.Text = text
+    btn.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.Font = Enum.Font.SourceSansBold
+    Instance.new("UICorner", btn)
+    return btn
+end
+
+local refreshScan = createRefreshBtn(scanPage, "SCAN RELOAD")
+local refreshServ = createRefreshBtn(servPage, "SERVER RELOAD")
+
+-- 共通リスト枠
+local function addEntry(parent, name, val, isYellow)
+    local f = Instance.new("Frame", parent)
+    f.Size = UDim2.new(1, -5, 0, 38)
+    f.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    Instance.new("UICorner", f)
+    
+    local nl = Instance.new("TextLabel", f)
+    nl.Size = UDim2.new(0.5, -5, 1, 0)
+    nl.Position = UDim2.new(0, 8, 0, 0)
+    nl.Text = name
+    nl.TextColor3 = Color3.new(1, 1, 1)
+    nl.BackgroundTransparency = 1
+    nl.TextXAlignment = Enum.TextXAlignment.Left
+    nl.TextTruncate = Enum.TextTruncate.AtEnd
+    
+    local vl = Instance.new("TextLabel", f)
+    vl.Size = UDim2.new(0.5, -10, 1, 0)
+    vl.Position = UDim2.new(0.5, 0, 0, 0)
+    vl.Text = val
+    vl.TextColor3 = isYellow and Color3.new(1, 1, 0) or Color3.new(1, 1, 1)
+    vl.BackgroundTransparency = 1
+    vl.TextXAlignment = Enum.TextXAlignment.Right
+    return f
+end
+
+-- --- ロジック ---
+local function formatVal(v)
+    local n = tonumber(v) or 0
+    local s = "/s"
+    local f = ""
+    if n >= 1e9 then f = string.format("%.1f", n/1e9) s = "B/s"
+    elseif n >= 1e6 then f = string.format("%.1f", n/1e6) s = "M/s"
+    elseif n >= 1e3 then f = string.format("%.1f", n/1e3) s = "K/s"
+    else f = tostring(math.floor(n)) end
+    local l, r = f:match("^(%d+)(%.?%d*)$")
+    l = l:reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
+    return "$" .. l .. r .. s
+end
+
 local function getMoney(p)
-    local keywords = {"PerSec", "Gain", "Brainrot", "Income", "Cash"}
-    -- プレイヤー内のすべてのValueオブジェクトを確認
     for _, obj in pairs(p:GetDescendants()) do
-        if obj:IsA("ValueBase") then
-            for _, key in pairs(keywords) do
-                if obj.Name:lower():find(key:lower()) then
-                    return obj.Value
-                end
-            end
+        if obj:IsA("ValueBase") and (obj.Name:find("PerSec") or obj.Name:find("Gain") or obj.Name:find("Brainrot")) then
+            return obj.Value
         end
     end
     return 0
 end
 
-local function runScan()
-    for _, v in pairs(scroll:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end
-    
-    local players = game.Players:GetPlayers()
-    for _, p in ipairs(players) do
+local function doScan()
+    for _, v in pairs(scanScroll:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end
+    for _, p in ipairs(game.Players:GetPlayers()) do
         if p == game.Players.LocalPlayer then continue end
-        
-        local val = getMoney(p)
-        
-        local f = Instance.new("Frame", scroll)
-        f.Size = UDim2.new(1, -5, 0, 38)
-        f.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-        Instance.new("UICorner", f)
-        
-        -- 表示名（キャラ名）
-        local nameL = Instance.new("TextLabel", f)
-        nameL.Size = UDim2.new(0.5, -5, 1, 0)
-        nameL.Position = UDim2.new(0, 8, 0, 0)
-        nameL.Text = p.DisplayName or p.Name
-        nameL.TextColor3 = Color3.new(1, 1, 1)
-        nameL.BackgroundTransparency = 1
-        nameL.TextXAlignment = Enum.TextXAlignment.Left
-        nameL.TextTruncate = Enum.TextTruncate.AtEnd
-        
-        -- 数値（黄色）
-        local valL = Instance.new("TextLabel", f)
-        valL.Size = UDim2.new(0.5, -10, 1, 0)
-        valL.Position = UDim2.new(0.5, 0, 0, 0)
-        valL.Text = formatVal(val)
-        valL.TextColor3 = Color3.new(1, 1, 0)
-        valL.BackgroundTransparency = 1
-        valL.TextXAlignment = Enum.TextXAlignment.Right
+        addEntry(scanScroll, p.DisplayName, formatVal(getMoney(p)), true)
     end
 end
 
-refreshBtn.MouseButton1Click:Connect(runScan)
+local function doServers()
+    for _, v in pairs(servScroll:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end
+    local success, res = pcall(function()
+        return game:GetService("HttpService"):JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Asc&limit=25"))
+    end)
+    if success and res.data then
+        for _, s in pairs(res.data) do
+            if s.playing >= s.maxPlayers then continue end
+            local entry = addEntry(servScroll, s.playing .. "/" .. s.maxPlayers .. " (" .. (s.ping or "?") .. "ms)", "", false)
+            local j = Instance.new("TextButton", entry)
+            j.Size = UDim2.new(0.3, 0, 0.7, 0)
+            j.Position = UDim2.new(0.65, 0, 0.15, 0)
+            j.Text = "JOIN"
+            j.BackgroundColor3 = Color3.fromRGB(0, 150, 80)
+            j.TextColor3 = Color3.new(1, 1, 1)
+            Instance.new("UICorner", j)
+            j.MouseButton1Click:Connect(function() game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, s.id) end)
+        end
+    end
+end
 
--- 起動時に少し待ってから実行（読み込み待ち）
-task.delay(1, runScan)
+tabScan.MouseButton1Click:Connect(function() scanPage.Visible = true; servPage.Visible = false; doScan() end)
+tabServ.MouseButton1Click:Connect(function() scanPage.Visible = false; servPage.Visible = true; doServers() end)
+refreshScan.MouseButton1Click:Connect(doScan)
+refreshServ.MouseButton1Click:Connect(doServers)
+
+task.spawn(function() while task.wait(2) do if scanPage.Visible then doScan() end end end)
+doScan()
