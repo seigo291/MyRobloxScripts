@@ -1,19 +1,36 @@
--- 以前のUIを掃除
+-- 以前のUIを完全に削除してリセット
 for _, old in pairs(game.CoreGui:GetChildren()) do
-    if old.Name == "ScannerFinalV19" then old:Destroy() end
+    if old.Name == "ScannerFinalV20" then old:Destroy() end
 end
 
 local screenGui = Instance.new("ScreenGui", game.CoreGui)
-screenGui.Name = "ScannerFinalV19"
+screenGui.Name = "ScannerFinalV20"
 
--- メインパネル
+-- --- 1. 起動用アイコン（パネルを閉じている時に表示） ---
+local openIcon = Instance.new("ImageButton", screenGui)
+openIcon.Size = UDim2.new(0, 40, 0, 40)
+openIcon.Position = UDim2.new(1, -45, 0.5, -100)
+openIcon.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+openIcon.Image = "rbxassetid://6031093116" -- 忍者アイコン
+openIcon.Visible = false -- 最初はパネルが出ているので隠す
+Instance.new("UICorner", openIcon).CornerRadius = UDim.new(1, 0)
+
+-- --- 2. メインパネル ---
 local panel = Instance.new("Frame", screenGui)
 panel.Size = UDim2.new(0, 200, 0, 380) 
 panel.Position = UDim2.new(1, -210, 0.5, -190)
 panel.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 Instance.new("UICorner", panel)
 
--- --- ヘッダー ---
+-- 閉じる・開くの連動
+local function toggleUI(showPanel)
+    panel.Visible = showPanel
+    openIcon.Visible = not showPanel
+end
+
+openIcon.MouseButton1Click:Connect(function() toggleUI(true) end)
+
+-- ヘッダー
 local header = Instance.new("Frame", panel)
 header.Size = UDim2.new(1, 0, 0, 35)
 header.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
@@ -41,7 +58,7 @@ closeBtn.Text = "×"
 closeBtn.TextColor3 = Color3.new(1, 0.3, 0.3)
 closeBtn.TextSize = 18
 closeBtn.BackgroundTransparency = 1
-closeBtn.MouseButton1Click:Connect(function() screenGui:Destroy() end)
+closeBtn.MouseButton1Click:Connect(function() toggleUI(false) end)
 
 -- スクロールエリア
 local function createScroll(parent)
@@ -84,7 +101,7 @@ end
 local refreshScan = createRefreshBtn(scanPage, "SCAN RELOAD")
 local refreshServ = createRefreshBtn(servPage, "SERVER RELOAD")
 
--- 共通リスト作成
+-- 共通リスト枠
 local function addEntry(parent, text)
     local f = Instance.new("Frame", parent)
     f.Size = UDim2.new(1, -5, 0, 35)
@@ -107,14 +124,10 @@ local localPlayer = game:GetService("Players").LocalPlayer
 local function doScan()
     for _, v in pairs(scanScroll:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end
     for _, p in ipairs(game.Players:GetPlayers()) do
-        -- 自分は除外
         if p == localPlayer then continue end
-        
         local stats = p:FindFirstChild("leaderstats")
         local val = stats and (stats:FindFirstChild("BrainrotPerSec") or stats:FindFirstChild("Gain") or stats:FindFirstChild("Cash"))
         local score = val and tostring(val.Value) or "---"
-        
-        -- 名前と数値のみ表示
         addEntry(scanScroll, p.Name .. " : " .. score)
     end
 end
@@ -124,7 +137,25 @@ local function doServers()
     local success, res = pcall(function()
         return game:GetService("HttpService"):JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Asc&limit=25"))
     end)
-    
     if success and res.data then
         for _, s in pairs(res.data) do
-            -- 満員サーバー
+            if s.playing >= s.maxPlayers then continue end
+            local entry = addEntry(servScroll, s.playing .. "/" .. s.maxPlayers .. " (" .. (s.ping or "?") .. "ms)")
+            local j = Instance.new("TextButton", entry)
+            j.Size = UDim2.new(0.3, 0, 0.7, 0)
+            j.Position = UDim2.new(0.65, 0, 0.15, 0)
+            j.Text = "JOIN"
+            j.BackgroundColor3 = Color3.fromRGB(0, 150, 80)
+            j.TextColor3 = Color3.new(1, 1, 1)
+            Instance.new("UICorner", j)
+            j.MouseButton1Click:Connect(function() game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, s.id) end)
+        end
+    end
+end
+
+tabScan.MouseButton1Click:Connect(function() scanPage.Visible = true; servPage.Visible = false; doScan() end)
+tabServ.MouseButton1Click:Connect(function() scanPage.Visible = false; servPage.Visible = true; doServers() end)
+refreshScan.MouseButton1Click:Connect(doScan)
+refreshServ.MouseButton1Click:Connect(doServers)
+
+doScan()
