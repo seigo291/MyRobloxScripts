@@ -1,37 +1,39 @@
--- 以前のUIを掃除
-for _, old in pairs(game.CoreGui:GetChildren()) do
-    if old.Name == "ScannerFinalV21" then old:Destroy() end
+-- 1. 古いUIを徹底的に掃除
+local coreGui = game:GetService("CoreGui")
+for _, old in pairs(coreGui:GetChildren()) do
+    if old.Name:match("Scanner") or old.Name:match("Unified") or old:FindFirstChild("panel") then 
+        old:Destroy() 
+    end
 end
 
-local screenGui = Instance.new("ScreenGui", game.CoreGui)
-screenGui.Name = "ScannerFinalV21"
+local screenGui = Instance.new("ScreenGui", coreGui)
+screenGui.Name = "ScannerFinalV22"
+screenGui.DisplayOrder = 999 -- 最前面に表示
 screenGui.ResetOnSpawn = false
 
--- --- 1. 起動用アイコン ---
+-- --- メインパネル ---
+local panel = Instance.new("Frame", screenGui)
+panel.Size = UDim2.new(0, 200, 0, 380) 
+panel.Position = UDim2.new(1, -210, 0.5, -190)
+panel.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+panel.BorderSizePixel = 0
+panel.Visible = true -- 実行時に必ず表示
+Instance.new("UICorner", panel)
+
+-- --- 起動用アイコン（閉じている時用） ---
 local openIcon = Instance.new("ImageButton", screenGui)
 openIcon.Size = UDim2.new(0, 45, 0, 45)
 openIcon.Position = UDim2.new(1, -50, 0.5, -22)
 openIcon.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
 openIcon.Image = "rbxassetid://6031093116"
-openIcon.Visible = false -- 最初は隠す
-openIcon.ZIndex = 20
+openIcon.Visible = false -- 最初はパネルが出ているので隠す
 Instance.new("UICorner", openIcon).CornerRadius = UDim.new(1, 0)
-
--- --- 2. メインパネル ---
-local panel = Instance.new("Frame", screenGui)
-panel.Size = UDim2.new(0, 200, 0, 380) 
-panel.Position = UDim2.new(1, -210, 0.5, -190) -- 右側に配置
-panel.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-panel.Visible = true -- 【重要】実行時に必ず表示
-panel.ZIndex = 10
-Instance.new("UICorner", panel)
 
 -- 表示切り替えロジック
 local function toggleUI(showPanel)
     panel.Visible = showPanel
     openIcon.Visible = not showPanel
 end
-
 openIcon.MouseButton1Click:Connect(function() toggleUI(true) end)
 
 -- ヘッダー
@@ -64,7 +66,7 @@ closeBtn.TextSize = 18
 closeBtn.BackgroundTransparency = 1
 closeBtn.MouseButton1Click:Connect(function() toggleUI(false) end)
 
--- スクロール
+-- スクロールエリア
 local function createScroll(parent)
     local s = Instance.new("ScrollingFrame", parent)
     s.Size = UDim2.new(1, -10, 1, -85)
@@ -72,6 +74,7 @@ local function createScroll(parent)
     s.BackgroundTransparency = 1
     s.AutomaticCanvasSize = Enum.AutomaticSize.Y
     s.ScrollBarThickness = 3
+    s.CanvasSize = UDim2.new(0,0,0,0)
     local l = Instance.new("UIListLayout", s)
     l.Padding = UDim.new(0, 4)
     return s
