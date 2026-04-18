@@ -1,109 +1,109 @@
--- 古いUIの完全削除
+-- 既存の全バージョンを完全に掃除
 for _, old in pairs(game.CoreGui:GetChildren()) do
-    if old.Name == "ServerExplorerV13" then old:Destroy() end
+    if old.Name:match("Scanner") or old.Name:match("Server") or old:FindFirstChild("SCAN") then 
+        old:Destroy() 
+    end
 end
 
 local screenGui = Instance.new("ScreenGui", game.CoreGui)
-screenGui.Name = "ServerExplorerV13"
+screenGui.Name = "ScannerUnifiedV14"
 
--- メインパネル（さらに横幅を細く、全体を小さく）
+-- --- 設定 ---
+_G.AutoScanEnabled = _G.AutoScanEnabled or false
+
+-- 開閉アイコン（右端に小さく配置）
+local icon = Instance.new("ImageButton", screenGui)
+icon.Size = UDim2.new(0, 40, 0, 40)
+icon.Position = UDim2.new(1, -45, 0.5, -20)
+icon.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+icon.Image = "rbxassetid://6031093116"
+icon.ImageColor3 = Color3.fromRGB(255, 255, 0)
+Instance.new("UICorner", icon).CornerRadius = UDim.new(1, 0)
+
+-- メインパネル（劇的にスリム化：横幅200）
 local panel = Instance.new("Frame", screenGui)
-panel.Size = UDim2.new(0, 240, 0, 320) -- 横240、縦320に縮小
-panel.Position = UDim2.new(1, -250, 0.5, -160) -- 右端に寄せる
-panel.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-panel.ClipsDescendants = true
-Instance.new("UICorner", panel).CornerRadius = UDim.new(0, 6)
+panel.Size = UDim2.new(0, 200, 0, 350) 
+panel.Position = UDim2.new(1, -250, 0.5, -175)
+panel.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+panel.Visible = false
+Instance.new("UICorner", panel)
 
--- ヘッダー（高さを抑える）
-local header = Instance.new("Frame", panel)
-header.Size = UDim2.new(1, 0, 0, 35)
-header.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-local title = Instance.new("TextLabel", header)
-title.Size = UDim2.new(1, 0, 1, 0)
-title.Text = "ACTIVE SERVERS"
-title.TextColor3 = Color3.fromRGB(200, 200, 200)
-title.TextSize = 12 -- 文字を小さく
-title.Font = Enum.Font.SourceSansBold
-title.BackgroundTransparency = 1
+-- タブ切り替え（スキャン / 鯖リスト）
+local tabFrame = Instance.new("Frame", panel)
+tabFrame.Size = UDim2.new(1, 0, 0, 30)
+tabFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 
--- スクロールリスト
-local scroll = Instance.new("ScrollingFrame", panel)
-scroll.Size = UDim2.new(1, -10, 1, -85) -- リスト領域の調整
-scroll.Position = UDim2.new(0, 5, 0, 40)
-scroll.BackgroundTransparency = 1
-scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-scroll.ScrollBarThickness = 3 -- バーも細く
-local layout = Instance.new("UIListLayout", scroll)
-layout.Padding = UDim.new(0, 4)
-
--- 更新ボタン（コンパクト化）
-local refreshBtn = Instance.new("TextButton", panel)
-refreshBtn.Size = UDim2.new(0.9, 0, 0, 30)
-refreshBtn.Position = UDim2.new(0.05, 0, 1, -35)
-refreshBtn.Text = "REFRESH LIST"
-refreshBtn.BackgroundColor3 = Color3.fromRGB(0, 100, 200)
-refreshBtn.TextColor3 = Color3.new(1, 1, 1)
-refreshBtn.TextSize = 12
-refreshBtn.Font = Enum.Font.SourceSansBold
-Instance.new("UICorner", refreshBtn).CornerRadius = UDim.new(0, 4)
-
--- サービス
-local HttpService = game:GetService("HttpService")
-local TeleportService = game:GetService("TeleportService")
-
-local function updateList()
-    for _, v in pairs(scroll:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end
-    refreshBtn.Text = "SCANNING..."
-    refreshBtn.Active = false
-
-    local url = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Desc&limit=50"
-    local success, result = pcall(function()
-        return HttpService:JSONDecode(game:HttpGet(url))
-    end)
-
-    if success and result.data then
-        for _, server in pairs(result.data) do
-            if server.id == game.JobId then continue end
-            local freeSlots = server.maxPlayers - server.playing
-            
-            -- 各枠を低くスリムに
-            local f = Instance.new("Frame", scroll)
-            f.Size = UDim2.new(1, -6, 0, 45) -- 高さを45に短縮
-            f.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-            Instance.new("UICorner", f)
-
-            local info = Instance.new("TextLabel", f)
-            info.Size = UDim2.new(0.6, 0, 1, 0)
-            info.Position = UDim2.new(0, 8, 0, 0)
-            info.BackgroundTransparency = 1
-            info.TextColor3 = Color3.new(0.9, 0.9, 0.9)
-            info.TextXAlignment = Enum.TextXAlignment.Left
-            info.TextSize = 11
-            info.RichText = true
-            info.Text = "Players: " .. server.playing .. "/" .. server.maxPlayers .. 
-                        "\nFree: <font color='#00ff00'>" .. freeSlots .. "</font> | " .. (server.ping or "??") .. "ms"
-
-            local join = Instance.new("TextButton", f)
-            join.Size = UDim2.new(0.3, 0, 0.6, 0)
-            join.Position = UDim2.new(0.65, 0, 0.2, 0)
-            join.Text = "JOIN"
-            join.BackgroundColor3 = (freeSlots > 0) and Color3.fromRGB(0, 150, 70) or Color3.fromRGB(70, 70, 70)
-            join.TextColor3 = Color3.new(1, 1, 1)
-            join.TextSize = 11
-            Instance.new("UICorner", join)
-
-            if freeSlots > 0 then
-                join.MouseButton1Click:Connect(function()
-                    TeleportService:TeleportToPlaceInstance(game.PlaceId, server.id)
-                end)
-            else
-                join.Text = "FULL"
-            end
-        end
-    end
-    refreshBtn.Text = "REFRESH LIST"
-    refreshBtn.Active = true
+local function createTab(name, x)
+    local btn = Instance.new("TextButton", tabFrame)
+    btn.Size = UDim2.new(0.5, 0, 1, 0)
+    btn.Position = UDim2.new(x, 0, 0, 0)
+    btn.Text = name
+    btn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.TextSize = 10
+    return btn
 end
 
-refreshBtn.MouseButton1Click:Connect(updateList)
+local tabScan = createTab("SCAN", 0)
+local tabServ = createTab("SERVERS", 0.5)
+
+-- 各コンテンツエリア
+local scanPage = Instance.new("Frame", panel)
+scanPage.Size = UDim2.new(1, 0, 1, -30)
+scanPage.Position = UDim2.new(0, 0, 0, 30)
+scanPage.BackgroundTransparency = 1
+
+local servPage = Instance.new("Frame", panel)
+servPage.Size = UDim2.new(1, 0, 1, -30)
+servPage.Position = UDim2.new(0, 0, 0, 30)
+servPage.BackgroundTransparency = 1
+servPage.Visible = false
+
+-- --- SCANページの中身 ---
+local minIn = Instance.new("TextBox", scanPage)
+minIn.Size = UDim2.new(0.9, 0, 0, 25)
+minIn.Position = UDim2.new(0.05, 0, 0.05, 0)
+minIn.PlaceholderText = "Min Value"
+minIn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+minIn.TextColor3 = Color3.new(1, 1, 1)
+minIn.TextSize = 10
+Instance.new("UICorner", minIn)
+
+local autoBtn = Instance.new("TextButton", scanPage)
+autoBtn.Size = UDim2.new(0.9, 0, 0, 25)
+autoBtn.Position = UDim2.new(0.05, 0, 0.15, 0)
+autoBtn.Text = "AUTO: OFF"
+autoBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+autoBtn.TextColor3 = Color3.new(1, 1, 1)
+autoBtn.TextSize = 10
+Instance.new("UICorner", autoBtn)
+
+local scanScroll = Instance.new("ScrollingFrame", scanPage)
+scanScroll.Size = UDim2.new(1, -10, 0.7, 0)
+scanScroll.Position = UDim2.new(0, 5, 0.25, 0)
+scanScroll.BackgroundTransparency = 1
+scanScroll.AutomaticCanvasSize = "Y"
+scanScroll.ScrollBarThickness = 2
+Instance.new("UIListLayout", scanScroll).Padding = UDim.new(0, 3)
+
+-- --- SERVERページの中身 ---
+local servScroll = Instance.new("ScrollingFrame", servPage)
+servScroll.Size = UDim2.new(1, -10, 0.85, 0)
+servScroll.Position = UDim2.new(0, 5, 0, 5)
+servScroll.BackgroundTransparency = 1
+servScroll.AutomaticCanvasSize = "Y"
+servScroll.ScrollBarThickness = 2
+Instance.new("UIListLayout", servScroll).Padding = UDim.new(0, 3)
+
+local refBtn = Instance.new("TextButton", servPage)
+refBtn.Size = UDim2.new(0.9, 0, 0, 25)
+refBtn.Position = UDim2.new(0.05, 0, 0.9, 0)
+refBtn.Text = "REFRESH"
+refBtn.BackgroundColor3 = Color3.fromRGB(0, 100, 200)
+refBtn.TextColor3 = Color3.new(1, 1, 1)
+refBtn.TextSize = 10
+Instance.new("UICorner", refBtn)
+
+-- タブ切り替えロジック
+tabScan.MouseButton1Click:Connect(function() scanPage.Visible = true servPage.Visible = false end)
+tabServ.MouseButton
