@@ -18,23 +18,27 @@ openIcon.Size = UDim2.new(0, 45, 0, 45)
 openIcon.Position = UDim2.new(1, -50, 0.5, -22)
 openIcon.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 openIcon.Image = "rbxassetid://6031093116" -- スキャナー風アイコン
-openIcon.Visible = false
+openIcon.Visible = false -- 最初は非表示
 openIcon.ZIndex = 10
 Instance.new("UICorner", openIcon).CornerRadius = UDim.new(1, 0)
 
 -- 3. メインパネル
 local panel = Instance.new("Frame", screenGui)
 panel.Name = "MainPanel"
-panel.Size = UDim2.new(0, 230, 0, 360) 
-panel.Position = UDim2.new(1, -240, 0.5, -180)
+panel.Size = UDim2.new(0, 230, 0, 360)
+panel.Position = UDim2.new(1, -240, 0.5, -180) -- 画面右側に配置
 panel.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 panel.BorderSizePixel = 0
 panel.ZIndex = 5
 Instance.new("UICorner", panel)
+panel.Visible = false -- 最初は非表示
 
 local function toggleUI(visible)
     panel.Visible = visible
     openIcon.Visible = not visible
+    if visible then
+        updateScanner() -- UIが開かれた時にスキャンを更新
+    end
 end
 
 -- 4. ヘッダー（タブと×ボタン）
@@ -42,7 +46,7 @@ local header = Instance.new("Frame", panel)
 header.Size = UDim2.new(1, 0, 0, 35)
 header.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
 header.ZIndex = 6
-Instance.new("UICorner", header)
+Instance.new("UICorner", header) -- header自体にもUICornerを設定する場合
 
 local function createTabBtn(text, xPos)
     local btn = Instance.new("TextButton", header)
@@ -73,17 +77,23 @@ openIcon.MouseButton1Click:Connect(function() toggleUI(true) end)
 
 -- 5. ページ管理
 local scanPage = Instance.new("ScrollingFrame", panel)
-scanPage.Size = UDim2.new(1, -10, 1, -50)
-scanPage.Position = UDim2.new(0, 5, 0, 40)
+scanPage.Name = "ScanPage"
+scanPage.Size = UDim2.new(1, -10, 1, -50) -- パネル内に収まるように調整
+scanPage.Position = UDim2.new(0, 5, 0, 40) -- ヘッダーの下に配置
 scanPage.BackgroundTransparency = 1
 scanPage.CanvasSize = UDim2.new(0, 0, 0, 0)
 scanPage.AutomaticCanvasSize = Enum.AutomaticSize.Y
 scanPage.ScrollBarThickness = 3
-scanPage.Visible = true
+scanPage.Visible = true -- 最初はSCANページを表示
 local scanLayout = Instance.new("UIListLayout", scanPage)
 scanLayout.Padding = UDim.new(0, 5)
+scanLayout.FillDirection = Enum.FillDirection.Vertical
+scanLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+scanLayout.VerticalAlignment = Enum.VerticalAlignment.Top
+scanLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
 local servPage = Instance.new("ScrollingFrame", panel)
+servPage.Name = "ServPage"
 servPage.Size = UDim2.new(1, -10, 1, -50)
 servPage.Position = UDim2.new(0, 5, 0, 40)
 servPage.BackgroundTransparency = 1
@@ -93,54 +103,119 @@ servPage.ScrollBarThickness = 3
 servPage.Visible = false
 local servLayout = Instance.new("UIListLayout", servPage)
 servLayout.Padding = UDim.new(0, 5)
+servLayout.FillDirection = Enum.FillDirection.Vertical
+servLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+servLayout.VerticalAlignment = Enum.VerticalAlignment.Top
+servLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
-tabScanBtn.MouseButton1Click:Connect(function() scanPage.Visible = true; servPage.Visible = false end)
-tabServBtn.MouseButton1Click:Connect(function() scanPage.Visible = false; servPage.Visible = true; refreshServers() end)
+tabScanBtn.MouseButton1Click:Connect(function() scanPage.Visible = true; servPage.Visible = false; updateScanner() end)
+tabServBtn.MouseButton1Click:Connect(function() scanPage.Visible = false; servPage.Visible = true; --[[ refreshServers() -- 後で実装 ]] end)
+
 
 -- 6. 便利関数（数値変換）
 local function formatVal(v)
     local n = tonumber(v) or 0
-    local s = "/s"
+    local s = "" -- デフォルトでは単位なし
     local f = ""
-    if n >= 1e12 then f = string.format("%.1f", n/1e12) s = "T/s"
-    elseif n >= 1e9 then f = string.format("%.1f", n/1e9) s = "B/s"
-    elseif n >= 1e6 then f = string.format("%.1f", n/1e6) s = "M/s"
-    elseif n >= 1e3 then f = string.format("%.1f", n/1e3) s = "K/s"
+    if n >= 1e12 then f = string.format("%.1f", n/1e12) s = "T"
+    elseif n >= 1e9 then f = string.format("%.1f", n/1e9) s = "B"
+    elseif n >= 1e6 then f = string.format("%.1f", n/1e6) s = "M"
+    elseif n >= 1e3 then f = string.format("%.1f", n/1e3) s = "K"
     else f = tostring(math.floor(n)) end
-    local l, r = f:match("^(%d+)(%.?%d*)$")
+
+    -- 小数点以下が0の場合、整数として表示
+    if f:sub(#f, #f) == "." then f = f:sub(1, #f - 1) end
+    if f:find("%.0$") then f = f:gsub("%.0$", "") end
+
+    local l, r_match = f:match("^(%d+)(%.?%d*)$")
     l = l:reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
-    return "$" .. l .. r .. s
+    local formatted_num = l .. r_match
+    return "$" .. formatted_num .. s -- "$123.4K" のような形式
 end
 
 -- 7. スキャン処理（キャラ名・数値）
 local function updateScanner()
-    for _, v in pairs(scanPage:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end
+    -- 既存のアイテムを削除
+    for _, v in pairs(scanPage:GetChildren()) do
+        if v:IsA("Frame") or v:IsA("TextLabel") then -- TextLabelも削除対象に含める場合
+            v:Destroy()
+        end
+    end
     
+    local playersData = {}
+
     for _, p in ipairs(game.Players:GetPlayers()) do
-        if p == game.Players.LocalPlayer then continue end
+        if p == game.Players.LocalPlayer then continue end -- 自分自身はスキップ
         
         local cashVal = 0
-        for _, obj in pairs(p:GetDescendants()) do
+        -- PlayerのDescendantsを直接ループする方が効率的
+        for _, obj in ipairs(p:GetDescendants()) do
+            -- objがValueBaseで、かつ特定の名前を含む場合
             if obj:IsA("ValueBase") and (obj.Name:find("PerSec") or obj.Name:find("Gain") or obj.Name:find("Brainrot")) then
                 cashVal = obj.Value
-                break
+                break -- 最初に見つかった値を使用
             end
         end
-        
+        table.insert(playersData, {player = p, value = cashVal})
+    end
+
+    -- 値の大きい順にソート（任意）
+    table.sort(playersData, function(a, b)
+        return a.value > b.value
+    end)
+
+    for _, data in ipairs(playersData) do
+        local p = data.player
+        local cashVal = data.value
+
         local f = Instance.new("Frame", scanPage)
-        f.Size = UDim2.new(1, -5, 0, 35)
+        f.Size = UDim2.new(1, -5, 0, 35) -- 幅は親の100%から5px縮小, 高さは35px固定
         f.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
         Instance.new("UICorner", f)
         
         local nameL = Instance.new("TextLabel", f)
-        nameL.Size = UDim2.new(0.5, -5, 1, 0)
-        nameL.Position = UDim2.new(0, 10, 0, 0)
+        nameL.Size = UDim2.new(0.5, -5, 1, 0) -- 親フレームの半分、左右に5pxの余白
+        nameL.Position = UDim2.new(0, 10, 0, 0) -- 左から10pxオフセット
         nameL.Text = p.DisplayName -- キャラ名を表示
         nameL.TextColor3 = Color3.new(1, 1, 1)
         nameL.BackgroundTransparency = 1
         nameL.TextXAlignment = Enum.TextXAlignment.Left
         nameL.TextTruncate = Enum.TextTruncate.AtEnd
+        nameL.Font = Enum.Font.SourceSansBold
+        nameL.TextSize = 14
         
         local valL = Instance.new("TextLabel", f)
-        valL.Size = UDim2.new(0.5, -10, 1, 0)
-        valL.Position = UDim2.new(0.5, 0, 0,
+        valL.Size = UDim2.new(0.5, -10, 1, 0) -- 親フレームの半分、左右に10pxの余白
+        valL.Position = UDim2.new(0.5, 0, 0, 0) -- 右半分に配置
+        valL.Text = formatVal(cashVal) -- formatVal関数を使って値を表示
+        valL.TextColor3 = Color3.new(1, 1, 1)
+        valL.BackgroundTransparency = 1
+        valL.TextXAlignment = Enum.TextXAlignment.Right
+        valL.TextTruncate = Enum.TextTruncate.AtEnd
+        valL.Font = Enum.Font.SourceSans
+        valL.TextSize = 14
+    end
+end
+
+-- UIを初期表示（閉じている状態）
+toggleUI(false)
+
+-- 起動時に一度スキャンを実行
+updateScanner()
+
+-- 定期的にスキャナーを更新（例: 5秒ごと）
+spawn(function()
+    while true do
+        if panel.Visible and scanPage.Visible then
+            updateScanner()
+        end
+        wait(5) -- 5秒待機
+    end
+end)
+
+-- 注: 'refreshServers()' 関数はまだ実装されていません。
+-- 'SERVERS' タブがクリックされた時の処理は、必要に応じて後で追加してください。
+-- 例えば、ここに追加できます:
+-- local function refreshServers()
+--    -- サーバー情報を取得してservPageに表示するロジック
+-- end
