@@ -1,11 +1,11 @@
--- 古いUIを掃除
+-- 古いUIを徹底掃除
 local coreGui = game:GetService("CoreGui")
 for _, old in pairs(coreGui:GetChildren()) do
-    if old.Name == "ScannerFinalV25" then old:Destroy() end
+    if old.Name:match("ScannerFinal") then old:Destroy() end
 end
 
 local screenGui = Instance.new("ScreenGui", coreGui)
-screenGui.Name = "ScannerFinalV25"
+screenGui.Name = "ScannerFinalV26"
 screenGui.DisplayOrder = 999
 screenGui.ResetOnSpawn = false
 
@@ -15,21 +15,6 @@ panel.Size = UDim2.new(0, 220, 0, 360)
 panel.Position = UDim2.new(1, -230, 0.5, -180)
 panel.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 Instance.new("UICorner", panel)
-
--- 起動アイコン
-local openIcon = Instance.new("ImageButton", screenGui)
-openIcon.Size = UDim2.new(0, 45, 0, 45)
-openIcon.Position = UDim2.new(1, -50, 0.5, -22)
-openIcon.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-openIcon.Image = "rbxassetid://6031093116"
-openIcon.Visible = false
-Instance.new("UICorner", openIcon).CornerRadius = UDim.new(1, 0)
-
-local function toggleUI(showPanel)
-    panel.Visible = showPanel
-    openIcon.Visible = not showPanel
-end
-openIcon.MouseButton1Click:Connect(function() toggleUI(true) end)
 
 -- ヘッダー
 local header = Instance.new("Frame", panel)
@@ -59,7 +44,7 @@ closeBtn.Text = "×"
 closeBtn.TextColor3 = Color3.new(1, 0.3, 0.3)
 closeBtn.TextSize = 18
 closeBtn.BackgroundTransparency = 1
-closeBtn.MouseButton1Click:Connect(function() toggleUI(false) end)
+closeBtn.MouseButton1Click:Connect(function() screenGui:Destroy() end)
 
 -- スクロール
 local function createScroll(parent)
@@ -102,7 +87,7 @@ end
 local refreshScan = createRefreshBtn(scanPage, "SCAN RELOAD")
 local refreshServ = createRefreshBtn(servPage, "SERVER RELOAD")
 
--- リスト枠
+-- リスト枠（キャラ名対応）
 local function addEntry(parent, nameText, valueText, isYellow)
     local f = Instance.new("Frame", parent)
     f.Size = UDim2.new(1, -5, 0, 35)
@@ -113,7 +98,7 @@ local function addEntry(parent, nameText, valueText, isYellow)
     nameL.Size = UDim2.new(0.5, -5, 1, 0)
     nameL.Position = UDim2.new(0, 8, 0, 0)
     nameL.BackgroundTransparency = 1
-    nameL.Text = nameText
+    nameL.Text = nameText -- ここにDisplayNameが入る
     nameL.TextColor3 = Color3.new(1, 1, 1)
     nameL.TextSize = 11
     nameL.TextXAlignment = Enum.TextXAlignment.Left
@@ -134,34 +119,37 @@ end
 -- --- ロジック ---
 local function comma_value(n)
     local left, num, right = string.match(n, '^([^%d]*%d+)(%d*)(.-)$')
+    if not left then return n end
     return left .. (num:reverse():gsub('(%d%d%d)', '%1,'):reverse()) .. right
 end
 
-local function formatValue(val)
-    if not val then return "---" end
-    local v = val.Value
-    if typeof(v) == "number" then
-        if v >= 1e9 then 
-            return comma_value(string.format("%.1f", v/1e9)) .. "B/s"
-        elseif v >= 1e6 then 
-            return comma_value(string.format("%.1f", v/1e6)) .. "M/s"
-        elseif v >= 1e3 then 
-            return comma_value(string.format("%.1f", v/1e3)) .. "K/s"
-        else 
-            return comma_value(tostring(v)) .. "/s" 
-        end
+local function formatValue(p)
+    local stats = p:FindFirstChild("leaderstats")
+    if not stats then return "---" end
+    
+    -- ゲーム内で「稼ぎ」を指す可能性のある項目をすべてチェック
+    local target = stats:FindFirstChild("BrainrotPerSec") or stats:FindFirstChild("Gain") or stats:FindFirstChild("PerSec") or stats:FindFirstChild("Cash")
+    if not target then return "---" end
+    
+    local v = target.Value
+    if v >= 1e9 then 
+        return comma_value(string.format("%.1f", v/1e9)) .. "B/s"
+    elseif v >= 1e6 then 
+        return comma_value(string.format("%.1f", v/1e6)) .. "M/s"
+    elseif v >= 1e3 then 
+        return comma_value(string.format("%.1f", v/1e3)) .. "K/s"
+    else 
+        return comma_value(tostring(v)) .. "/s" 
     end
-    return tostring(v) .. "/s"
 end
 
 local function doScan()
     for _, v in pairs(scanScroll:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end
     for _, p in ipairs(game.Players:GetPlayers()) do
         if p == game.Players.LocalPlayer then continue end
-        local stats = p:FindFirstChild("leaderstats")
-        local val = stats and (stats:FindFirstChild("BrainrotPerSec") or stats:FindFirstChild("Gain") or stats:FindFirstChild("PerSec"))
-        local score = formatValue(val)
-        -- キャラ名（DisplayName）を表示
+        
+        local score = formatValue(p)
+        -- p.DisplayName で「キャラの名前」を確実に取得
         addEntry(scanScroll, p.DisplayName, score, true)
     end
 end
