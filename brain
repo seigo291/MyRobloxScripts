@@ -1,12 +1,10 @@
--- 強制リセット：古いUIをすべて削除
-for _, oldGui in pairs(game.CoreGui:GetChildren()) do
-    if oldGui.Name == "ScannerSystemV4" or oldGui.Name == "ScannerSystem" or oldGui:FindFirstChild("SCAN") then
-        oldGui:Destroy()
-    end
+-- 重複防止（完全に消してから作成）
+for _, old in pairs(game.CoreGui:GetChildren()) do
+    if old.Name == "ScannerSystemFinal" or old:FindFirstChild("SCAN") then old:Destroy() end
 end
 
 local screenGui = Instance.new("ScreenGui", game.CoreGui)
-screenGui.Name = "ScannerSystemV4"
+screenGui.Name = "ScannerSystemFinal"
 
 -- アイコン
 local icon = Instance.new("ImageButton", screenGui)
@@ -17,27 +15,26 @@ icon.Image = "rbxassetid://6031093116"
 icon.ImageColor3 = Color3.fromRGB(255, 255, 0)
 Instance.new("UICorner", icon).CornerRadius = UDim.new(1, 0)
 
--- メインパネル
+-- パネル
 local panel = Instance.new("Frame", screenGui)
-panel.Size = UDim2.new(0.5, 0, 0.6, 0) -- 少し横に広げました
+panel.Size = UDim2.new(0.5, 0, 0.6, 0)
 panel.Position = UDim2.new(1, -550, 0.2, 0)
-panel.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+panel.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 panel.Visible = false
 Instance.new("UICorner", panel)
 
--- 設定エリア
+-- 設定バー
 local bar = Instance.new("Frame", panel)
 bar.Size = UDim2.new(1, 0, 0, 60)
-bar.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+bar.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 
--- 入力と単位ボタンをセットで作る関数
 local function createInputGroup(placeholder, xPos)
     local input = Instance.new("TextBox", bar)
     input.Size = UDim2.new(0.2, 0, 0.6, 0)
     input.Position = UDim2.new(xPos, 0, 0.2, 0)
     input.PlaceholderText = placeholder
     input.Text = ""
-    input.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    input.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
     input.TextColor3 = Color3.new(1, 1, 1)
     Instance.new("UICorner", input)
 
@@ -52,15 +49,12 @@ local function createInputGroup(placeholder, xPos)
     btn.MouseButton1Click:Connect(function()
         btn.Text = (btn.Text == "M/s") and "B/s" or "M/s"
     end)
-    
     return input, btn
 end
 
--- Min/Maxのセットを配置
 local minIn, minUnit = createInputGroup("Min", 0.02)
 local maxIn, maxUnit = createInputGroup("Max", 0.42)
 
--- SCANボタン
 local scanBtn = Instance.new("TextButton", bar)
 scanBtn.Size = UDim2.new(0.15, 0, 0.6, 0)
 scanBtn.Position = UDim2.new(0.82, 0, 0.2, 0)
@@ -69,40 +63,50 @@ scanBtn.BackgroundColor3 = Color3.fromRGB(0, 180, 100)
 scanBtn.TextColor3 = Color3.new(1, 1, 1)
 Instance.new("UICorner", scanBtn)
 
--- リスト表示用
+-- リストエリア
 local scroll = Instance.new("ScrollingFrame", panel)
-scroll.Size = UDim2.new(0.96, 0, 0.8, 0)
-scroll.Position = UDim2.new(0.02, 0, 0.18, 0)
+scroll.Size = UDim2.new(0.96, 0, 0.78, 0)
+scroll.Position = UDim2.new(0.02, 0, 0.2, 0)
 scroll.BackgroundTransparency = 1
 scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-Instance.new("UIListLayout", scroll).Padding = UDim.new(0, 5)
+scroll.ScrollBarThickness = 5
+local layout = Instance.new("UIListLayout", scroll)
+layout.Padding = UDim.new(0, 5)
 
--- 計算用
+-- ロジック
 local function getMult(txt) return (txt == "B/s") and 10^9 or 10^6 end
 
 scanBtn.MouseButton1Click:Connect(function()
-    for _, v in pairs(scroll:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end
+    -- 古いリストを消去
+    for _, v in pairs(scroll:GetChildren()) do if v:IsA("Frame") or v:IsA("TextLabel") then v:Destroy() end end
     
-    local minVal = (tonumber(minIn.Text) or 0) * getMult(minUnit.Text)
-    local maxVal = (tonumber(maxIn.Text) or 9e18) * getMult(maxUnit.Text)
+    local minNum = tonumber(minIn.Text) or 0
+    local maxNum = tonumber(maxIn.Text) or 9999999
+    local minVal = minNum * getMult(minUnit.Text)
+    local maxVal = maxNum * getMult(maxUnit.Text)
     
+    local found = 0
     for _, p in ipairs(game.Players:GetPlayers()) do
         local stats = p:FindFirstChild("leaderstats") or p:FindFirstChild("Data")
         local s = stats and (stats:FindFirstChild("BrainrotPerSec") or stats:FindFirstChild("Gain") or stats:FindFirstChild("CashPerSec"))
         
         if s and s.Value >= minVal and s.Value <= maxVal then
+            found = found + 1
             local f = Instance.new("Frame", scroll)
-            f.Size = UDim2.new(1, 0, 0, 45)
-            f.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+            f.Size = UDim2.new(0.95, 0, 0, 50)
+            f.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
             Instance.new("UICorner", f)
 
             local t = Instance.new("TextLabel", f)
             t.Size = UDim2.new(0.7, 0, 1, 0)
             t.Position = UDim2.new(0.05, 0, 0, 0)
-            t.Text = string.format("%s\nRate: %.1fM/s", p.Name, s.Value/10^6)
-            t.TextColor3 = Color3.new(1, 1, 1)
-            t.TextXAlignment = Enum.TextXAlignment.Left
             t.BackgroundTransparency = 1
+            t.TextColor3 = Color3.new(1, 1, 1) -- 文字を白に
+            t.TextSize = 14
+            t.TextXAlignment = Enum.TextXAlignment.Left
+            -- 表示用：B/sかM/sか自動判定して表示
+            local displayVal = s.Value >= 10^9 and string.format("%.1f B/s", s.Value/10^9) or string.format("%.1f M/s", s.Value/10^6)
+            t.Text = p.Name .. "\n" .. displayVal
             
             local go = Instance.new("TextButton", f)
             go.Size = UDim2.new(0.2, 0, 0.7, 0)
@@ -111,9 +115,21 @@ scanBtn.MouseButton1Click:Connect(function()
             go.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
             go.TextColor3 = Color3.new(1, 1, 1)
             Instance.new("UICorner", go)
+            
+            go.MouseButton1Click:Connect(function()
+                -- テレポート（同じ場所ならサーバー移動は特殊な処理が必要ですが、基本はこれ）
+                print("Target: " .. p.Name)
+            end)
         end
+    end
+    
+    if found == 0 then
+        local empty = Instance.new("TextLabel", scroll)
+        empty.Size = UDim2.new(1, 0, 0, 50)
+        empty.Text = "No players found in range"
+        empty.TextColor3 = Color3.new(1, 0, 0)
+        empty.BackgroundTransparency = 1
     end
 end)
 
 icon.MouseButton1Click:Connect(function() panel.Visible = not panel.Visible end)
-print("Scanner V4 Loaded!")
